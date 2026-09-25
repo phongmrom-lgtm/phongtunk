@@ -1118,6 +1118,44 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
+        # Lệnh xóa Code 3500đ (/xoacode1) & 6000đ (/xoacode2)
+        elif cmd in ["/xoacode1", "/xoacode2"]:
+            type_code = 1 if cmd == "/xoacode1" else 2
+            price_label = "3.500đ" if type_code == 1 else "6.000đ"
+
+            lines = raw_text.split(maxsplit=1)
+            if len(lines) < 2:
+                await message.reply_text(
+                    f"{E['THERMOMETER']} <b>Cú pháp:</b> <code>{cmd} mã_code1 mã_code2 ...</code>\n"
+                    f"Hoặc xuống dòng từng mã code để xóa nhiều code cùng lúc.",
+                    parse_mode="HTML"
+                )
+                return
+
+            codes_raw = lines[1]
+            codes = re.split(r"[\s\n]+", codes_raw.strip())
+            codes = [c.strip() for c in codes if c.strip()]
+
+            if not codes:
+                await message.reply_text("❌ Không tìm thấy mã code hợp lệ để xóa.")
+                return
+
+            def delete_codes(cursor):
+                cursor.execute(
+                    "DELETE FROM code_stock WHERE type_code=%s AND code_val = ANY(%s)",
+                    (type_code, codes)
+                )
+                return cursor.rowcount
+
+            deleted_count = await db_transaction(delete_codes)
+            await message.reply_text(
+                f"{E['DISLIKE']} <b>XÓA KHO CODE THÀNH CÔNG!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"• Loại code: <b>{price_label}</b>\n"
+                f"• Đã xóa thành công: <b>{deleted_count:,} / {len(codes):,}</b> code khỏi kho.",
+                parse_mode="HTML"
+            )
+
         elif cmd == "/kho":
             res1 = await db_query("SELECT COUNT(*) FROM code_stock WHERE type_code=1 AND is_used=0", fetchone=True)
             res2 = await db_query("SELECT COUNT(*) FROM code_stock WHERE type_code=2 AND is_used=0", fetchone=True)
@@ -1381,7 +1419,7 @@ def main():
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
 
     admin_cmds = [
-        "code1", "code2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
+        "code1", "code2", "xoacode1", "xoacode2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
         "cam", "mocam", "nap", "tru", "baotri"
     ]
     for command in admin_cmds:
