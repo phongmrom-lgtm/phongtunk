@@ -68,7 +68,7 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH EMOJI (ĐÃ TÍCH HỢP ID ANIMATED EMOJI CHUYỂN ĐỘNG)
+# DANH SÁCH EMOJI (ĐÃ BỔ SUNG THÊM CÁC CUSTOME EMOJI ID TỪ THÔNG ĐIỆP)
 # ============================================================
 E = {
     "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
@@ -95,7 +95,7 @@ E = {
     "BAN": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
     "WARN1": '<tg-emoji emoji-id="5274099962655816924">❗️</tg-emoji>',
     "QUESTION": '<tg-emoji emoji-id="5436113877181941026">❓</tg-emoji>',
-    "ALERT1": '<tg-emoji emoji-id="5447644880824181073">⚠️</tg-emoji>',
+    "ALERT1": '<tg-emoji emoji-id="5420323339723881652">⚠️</tg-emoji>',
     "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
     "UP": '<tg-emoji emoji-id="5449683594425410231">🔼</tg-emoji>',
     "DOWN": '<tg-emoji emoji-id="5447183459602669338">🔽</tg-emoji>',
@@ -114,6 +114,11 @@ E = {
     "THUMB": '<tg-emoji emoji-id="5219872564569972166">👍</tg-emoji>',
     "LOVE": '<tg-emoji emoji-id="5323470315370585285">😍</tg-emoji>',
     "SIX": '<tg-emoji emoji-id="5305642863902604489">6️⃣</tg-emoji>',
+    "CHART_UP": '<tg-emoji emoji-id="5244837092042750681">📈</tg-emoji>',
+    "CHART_DOWN": '<tg-emoji emoji-id="5246762912428603768">📉</tg-emoji>',
+    "MONEY_FLY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
+    "TRASH": '<tg-emoji emoji-id="5278751923338490157">🗑</tg-emoji>',
+    "LOCK_SECURE": '<tg-emoji emoji-id="5445267414562389170">🔒</tg-emoji>',
 }
 
 
@@ -1140,9 +1145,15 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 f"{E['SPARKLES']} <b>MUA CODE THÀNH CÔNG!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"<b>Số Tiền Mua:</b> {cost}đ\n"
-                f"<b>Code Trị Giá :</b> {val}đ\n"
-                f"<b>Mã Code:</b> <code>{result}</code>",
+                f"{E['MONEY_FLY']} <b>Số Tiền Mua:</b> {cost}đ\n"
+                f"{E['STAR']} <b>Code Trị Giá:</b> {val}đ\n"
+                f"{E['CLIP']} <b>Mã Code:</b> <code>{result}</code>\n\n"
+                f"{E['ALERT1']} <b>Quy Định Rút Code</b>\n"
+                f"1. Cược Đủ 3 Vòng Cược Của Code\n"
+                f"2. Tài Khoản Tân Thủ Đánh Code Lên Yêu Cầu Nạp 50K Để Rút\n"
+                f"3. Tài Khoản Nào Đã Có Lịch Sử Nạp Trên 50K Rút Không Cần Nạp\n"
+                f"4. Không Được Dồn Quá 5 Code Cho 1 Tài Khoản\n"
+                f"{E['TRASH']} Phát Hiện Khấu Toàn Bộ Số Dư",
                 parse_mode="HTML"
             )
 
