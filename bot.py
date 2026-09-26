@@ -110,6 +110,7 @@ E = {
     "EXCLAMATION": '<tg-emoji emoji-id="5240241223632954241">❗️</tg-emoji>',
     "EYES": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
     "PHONE": '<tg-emoji emoji-id="5465465194056525619">📱</tg-emoji>',
+    "WARN": '<tg-emoji emoji-id="5463054218459884779">🌡</tg-emoji>',
 }
 
 
@@ -127,12 +128,12 @@ user_withdraw_state = {}
 
 
 def is_suspicious_account(user_id: int) -> bool:
-    """Cách 5: Kiểm tra Telegram ID quá mới nghi vấn clone"""
+    """Kiểm tra Telegram ID quá mới nghi vấn clone"""
     return user_id > MAX_ALLOW_USER_ID
 
 
 def is_ref_rate_limited(referrer_id: int) -> bool:
-    """Cách 5: Kiểm tra xem referrer có tuyển ref quá nhanh không"""
+    """Kiểm tra xem referrer có tuyển ref quá nhanh không"""
     now = datetime.now()
     cutoff = now - timedelta(seconds=REF_RATE_LIMIT_WINDOW)
     ref_tracker[referrer_id] = [t for t in ref_tracker[referrer_id] if t >= cutoff]
@@ -315,7 +316,7 @@ def get_main_keyboard():
 
 
 def get_contact_keyboard():
-    """Cách 2: Keyboard xin số điện thoại"""
+    """Keyboard xin số điện thoại chuẩn nút bấm Share Contact của Telegram"""
     keyboard = [
         [KeyboardButton("📱 XÁC MINH SỐ ĐIỆN THOẠI", request_contact=True)]
     ]
@@ -335,7 +336,7 @@ async def is_maintenance():
 
 
 # ============================================================
-# CÁCH 4: CAPTCHA ĐỘNG (BIẾN THIÊN)
+# CAPTCHA ĐỘNG (BIẾN THIÊN)
 # ============================================================
 
 def generate_captcha():
@@ -587,6 +588,41 @@ async def ensure_user_exists(update: Update):
 
 
 # ============================================================
+# BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI (Yêu cầu đầu tiên)
+# ============================================================
+
+async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
+    """Gửi yêu cầu xác minh số điện thoại tới người dùng"""
+    msg = (f"{text_prefix}\n\n" if text_prefix else "")
+    msg += (
+        f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI TÀI KHOẢN</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['POINT_RIGHT']} Để chống nick clone/buff ref, hệ thống yêu cầu xác minh SĐT thật.\n"
+        f" Vui lòng nhấn vào nút <b>📱 XÁC MINH SỐ ĐIỆN THOẠI</b> ở bàn phím bên dưới để tiếp tục!"
+    )
+    
+    if hasattr(message_or_bot, "reply_text"):
+        await message_or_bot.reply_text(
+            msg,
+            reply_markup=get_contact_keyboard(),
+            parse_mode="HTML"
+        )
+    else:
+        await message_or_bot.send_message(
+            chat_id=user_id,
+            text=msg,
+            reply_markup=get_contact_keyboard(),
+            parse_mode="HTML"
+        )
+
+
+async def check_phone_verified(user_id) -> bool:
+    """Kiểm tra xem người dùng đã xác minh SĐT trong DB chưa"""
+    row = await db_query("SELECT phone_number FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    return bool(row and row[0])
+
+
+# ============================================================
 # START
 # ============================================================
 
@@ -654,8 +690,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 commit=True,
             )
 
+    # 🛑 BƯỚC 1: Kiểm tra xác minh SĐT
+    is_phone_ok = await check_phone_verified(user.id)
+    if not is_phone_ok and user.id not in ADMIN_IDS:
+        await prompt_phone_verification(update.message, user.id)
+        return
+
+    # 🛑 BƯỚC 2: Kiểm tra kênh/nhóm bắt buộc
     missing_channels = await get_missing_channels(context.bot, user.id)
-    if missing_channels:
+    if missing_channels and user.id not in ADMIN_IDS:
         buttons = build_channel_buttons(missing_channels)
         missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
         await update.message.reply_text(
@@ -696,7 +739,7 @@ async def send_captcha_challenge(update_or_query, context: ContextTypes.DEFAULT_
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
         f"{E['ROCK']} <b>XÁC MINH CAPTCHA BẢO MẬT</b>\n"
-        f"{E['POINT_RIGHT']} Vui lòng giải phép tính bên dưới để hoàn tất đăng ký:\n"
+        f"{E['POINT_RIGHT']} Vui lòng giải phép tính bên dưới để hoàn tất xác minh:\n"
         f"{E['BANDAGE']} <b>{expr_str} = ?</b>"
     )
     if hasattr(update_or_query, "edit_message_text"):
@@ -733,6 +776,16 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
         return
+
+    # Kiểm tra SĐT trước
+    if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
+        try:
+            await query.delete_message()
+        except Exception:
+            pass
+        await prompt_phone_verification(context.bot, user.id)
+        return
+
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels:
         buttons = build_channel_buttons(missing_channels)
@@ -754,7 +807,55 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ============================================================
-# CAPTCHA CALLBACK & BƯỚC SỐ ĐIỆN THOẠI (CÁCH 2, 4, 5)
+# XỬ LÝ SHARE CONTACT SỐ ĐIỆN THOẠI
+# ============================================================
+
+async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Tiếp nhận Contact người dùng chia sẻ nút Share Contact"""
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not message.contact or not user:
+        return
+
+    contact = message.contact
+    if contact.user_id != user.id:
+        await message.reply_text(
+            f"{E['CROSS']} <b>Số điện thoại xác minh không thuộc về tài khoản Telegram này!</b>",
+            parse_mode="HTML",
+            reply_markup=get_contact_keyboard()
+        )
+        return
+
+    phone = contact.phone_number
+    # Lưu phone number vào database
+    await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
+
+    await message.reply_text(
+        f"{E['CHECK']} <b>Đã xác minh số điện thoại thành công:</b> <code>{phone}</code>",
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+    # Sau khi có SĐT -> Chuyển sang bước kiểm tra kênh hoặc Captcha
+    missing_channels = await get_missing_channels(context.bot, user.id)
+    if missing_channels and user.id not in ADMIN_IDS:
+        buttons = build_channel_buttons(missing_channels)
+        missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
+        await message.reply_text(
+            f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
+            f"{missing_text}\n\n"
+            f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode="HTML",
+        )
+    else:
+        await send_captcha_challenge(message, context)
+
+
+# ============================================================
+# CAPTCHA CALLBACK & THƯỞNG REF
 # ============================================================
 
 async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -786,56 +887,11 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
-    # CÁCH 2: Kiểm tra xem đã xác minh SĐT chưa, nếu chưa thì yêu cầu Share Contact
-    u_data = await db_query("SELECT phone_number FROM users WHERE user_id=%s", (user.id,), fetchone=True)
-    if not u_data or not u_data[0]:
-        await context.bot.send_message(
-            chat_id=user.id,
-            text=(
-                f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI CHỐNG SPAM</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"Vui lòng nhấn vào nút <b>📱 XÁC MINH SỐ ĐIỆN THOẠI</b> ở bàn phím bên dưới để hoàn tất xác minh tài khoản!"
-            ),
-            reply_markup=get_contact_keyboard(),
-            parse_mode="HTML",
-        )
-        return
-
-    # Nếu đã có phone number thì tiến hành thưởng ref
-    await finalize_user_registration(user, context)
-
-
-async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cách 2: Tiếp nhận Contact người dùng chia sẻ"""
-    message = update.effective_message
-    user = update.effective_user
-    if not message or not message.contact or not user:
-        return
-
-    contact = message.contact
-    if contact.user_id != user.id:
-        await message.reply_text(
-            f"{E['CROSS']} <b>Số điện thoại xác minh không thuộc về tài khoản này!</b>",
-            parse_mode="HTML",
-            reply_markup=get_contact_keyboard()
-        )
-        return
-
-    phone = contact.phone_number
-    # Lưu phone number vào database
-    await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
-
-    await message.reply_text(
-        f"{E['CHECK']} <b>Đã xác minh số điện thoại thành công:</b> <code>{phone}</code>",
-        parse_mode="HTML",
-        reply_markup=ReplyKeyboardRemove()
-    )
-
     await finalize_user_registration(user, context)
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý thưởng giới thiệu với bộ lọc CÁCH 5 (ID + Rate limit)"""
+    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh"""
     db_user = await db_query(
         "SELECT referrer_id FROM users WHERE user_id=%s",
         (user.id,),
@@ -845,7 +901,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     if db_user and db_user[0]:
         ref_id = db_user[0]
 
-        # CÁCH 5: Kiểm tra Telegram ID clone quá mới
+        # Kiểm tra Telegram ID clone quá mới
         if is_suspicious_account(user.id):
             logger.warning(f"Bỏ qua cộng ref cho {ref_id}: ID {user.id} quá mới nghi vấn clone.")
             await context.bot.send_message(
@@ -856,7 +912,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # CÁCH 5: Kiểm tra Rate Limit tuyển ref
+        # Kiểm tra Rate Limit tuyển ref
         if is_ref_rate_limited(ref_id):
             logger.warning(f"Bỏ qua cộng ref cho {ref_id}: Tần suất nhận ref quá nhanh.")
             try:
@@ -950,6 +1006,13 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         return
+
+    # 🛑 BẮT BỘC 1: Kiểm tra xem user đã xác minh SĐT chưa (Cho cả người cũ & mới)
+    if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
+        await prompt_phone_verification(message, user.id)
+        return
+
+    # 🛑 BẮT BỘC 2: Kiểm tra kênh tham gia
     if user.id not in ADMIN_IDS:
         missing_channels = await get_missing_channels(context.bot, user.id)
         if missing_channels:
@@ -969,7 +1032,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (message.text or "").strip()
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
         balance = db_user[1]
-        phone_str = db_user[6] if db_user[6] else "Chưa xác minh"
+        phone_str = db_user[6] if len(db_user) > 6 and db_user[6] else "Chưa xác minh"
         res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (user.id,), fetchone=True)
         invited_count = res[0]
         res_withdraw = await db_query(
@@ -1007,7 +1070,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<code>{ref_link}</code>\n\n"
             f"{E['BANDAGE']} <b>Thể lệ nhận thưởng:</b>\n"
             f"• {E['LIKE']} Nhận ngay: <b>+{REFERRAL_REWARD:,}đ</b> / lượt mời thành công.\n"
-            f"• {E['POINT_RIGHT']} Bạn bè phải tham gia đủ kênh, giải CAPTCHA & xác minh SĐT.\n"
+            f"• {E['POINT_RIGHT']} Bạn bè phải xác minh SĐT, tham gia đủ kênh & giải CAPTCHA.\n"
             f"• {E['ROCK']} Min rút tối thiểu: <b>{MIN_WITHDRAW:,}đ</b>\n"
             f"• {E['SHIELD']} Rút tối đa: <b>{MAX_WITHDRAW:,}đ</b>"
         )
@@ -1647,7 +1710,7 @@ def main():
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     
-    # Handler tiếp nhận Contact cho Cách 2
+    # Handler tiếp nhận Contact cho xác minh SĐT
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
 
     admin_cmds = [
