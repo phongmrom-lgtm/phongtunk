@@ -68,7 +68,7 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH PREMIUM EMOJI (ĐÃ CẬP NHẬT TỪ THÔNG ĐIỆP JSON CỦA BẠN)
+# DANH SÁCH PREMIUM EMOJI (CẬP NHẬT TỪ JSON MỚI VÀ CŨ)
 # ============================================================
 E = {
     "LIKE": '<tg-emoji emoji-id="5465465194056525619">👍</tg-emoji>',
@@ -86,7 +86,22 @@ E = {
     "DIZZY": '<tg-emoji emoji-id="5463274047771000031">😵</tg-emoji>',
     "POINT_RIGHT": '<tg-emoji emoji-id="5463392464314315076">👉</tg-emoji>',
     "BANDAGE": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
-    # Alias biểu tượng bổ sung
+    # Emoji từ JSON cập nhật mới
+    "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
+    "PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
+    "TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "MONEY": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
+    "CROSS": '<tg-emoji emoji-id="5278751923338490157">❌</tg-emoji>',
+    "CHART": '<tg-emoji emoji-id="5290017777174722330">📊</tg-emoji>',
+    "CHECK": '<tg-emoji emoji-id="5210952531676504517">✔️</tg-emoji>',
+    "LIGHTNING": '<tg-emoji emoji-id="5231200819986047254">⚡️</tg-emoji>',
+    "COMET": '<tg-emoji emoji-id="5206607081334906820">☄️</tg-emoji>',
+    "BAG": '<tg-emoji emoji-id="5456140674028019486">🛍</tg-emoji>',
+    "PROHIBITED": '<tg-emoji emoji-id="5224607267797606837">🚫</tg-emoji>',
+    "NO_ENTRY": '<tg-emoji emoji-id="5229064374403998351">⛔️</tg-emoji>',
+    "EXCLAMATION": '<tg-emoji emoji-id="5240241223632954241">❗️</tg-emoji>',
+    "EYES": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
     "SPARKLES": '<tg-emoji emoji-id="5465262274031659421">🥰</tg-emoji>',
     "FIRE": '<tg-emoji emoji-id="5463277406435422003">🗡</tg-emoji>',
     "GEM": '<tg-emoji emoji-id="5465154440287757794">🛡</tg-emoji>',
@@ -130,7 +145,7 @@ def get_pool():
     global db_pool
     if db_pool is None:
         if not DATABASE_URL:
-            raise RuntimeError("Chưa cấu hình DATABASE_URL trên Railway.")
+            raise RuntimeError("Chưa cấu hình DATABASE_URL.")
         db_pool = ConnectionPool(
             DATABASE_URL,
             min_size=1,
@@ -220,7 +235,6 @@ def _init_db_sync():
                 )
                 """
             )
-            # Bảng Kho Code (1: 3500đ, 2: 6000đ)
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS code_stock (
@@ -536,7 +550,7 @@ async def ensure_user_exists(update: Update):
 
 
 # ============================================================
-# START
+# START (FIX LỖI KIỂM KÊ GIỚI THIỆU)
 # ============================================================
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -590,11 +604,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
     else:
-        await db_query(
-            "UPDATE users SET username=%s WHERE user_id=%s",
-            (user.username or "", user.id),
-            commit=True,
-        )
+        # Giữ nguyên người giới thiệu ban đầu nếu chưa có, tránh bị ghi đè thành NULL
+        if referrer_id and db_user[2] is None:
+            await db_query(
+                "UPDATE users SET username=%s, referrer_id=%s WHERE user_id=%s",
+                (user.username or "", referrer_id, user.id),
+                commit=True,
+            )
+        else:
+            await db_query(
+                "UPDATE users SET username=%s WHERE user_id=%s",
+                (user.username or "", user.id),
+                commit=True,
+            )
 
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels:
@@ -734,6 +756,14 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ref_id = db_user[0]
         try:
             def reward_referrer(cursor):
+                # Kiểm tra xem đã thưởng ref này chưa để tránh cộng trùng
+                cursor.execute(
+                    "SELECT id FROM transactions WHERE user_id=%s AND details=%s",
+                    (ref_id, f"Mời {user.id}")
+                )
+                if cursor.fetchone():
+                    return False
+                
                 details = f"Mời {user.id}"
                 cursor.execute(
                     "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s)",
@@ -820,7 +850,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (message.text or "").strip()
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
         balance = db_user[1]
-        res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s", (user.id,), fetchone=True)
+        res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (user.id,), fetchone=True)
         invited_count = res[0]
         res_withdraw = await db_query(
             "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=%s AND type LIKE 'Mua Code%%' AND status='Thành công'",
@@ -867,7 +897,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             SELECT u.user_id, u.username, COUNT(r.user_id) AS ref_count
             FROM users u
             JOIN users r ON r.referrer_id = u.user_id
-            WHERE u.is_banned = 0
+            WHERE u.is_banned = 0 AND r.is_banned = 0
             GROUP BY u.user_id, u.username
             ORDER BY ref_count DESC
             LIMIT 10
@@ -993,7 +1023,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         def process_buy_code(cursor):
-            # Kiểm tra kho code
             cursor.execute(
                 "SELECT id, code_val FROM code_stock WHERE type_code=%s AND is_used=0 ORDER BY id ASC LIMIT 1 FOR UPDATE",
                 (code_type,)
@@ -1004,7 +1033,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             code_stock_id, code_val = stock_item
 
-            # Trừ tiền
             cursor.execute(
                 "UPDATE users SET balance = balance - %s WHERE user_id=%s AND balance >= %s",
                 (cost, user.id, cost)
@@ -1012,13 +1040,11 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if cursor.rowcount != 1:
                 return "NOT_ENOUGH_BALANCE"
 
-            # Đánh dấu code đã dùng
             cursor.execute(
                 "UPDATE code_stock SET is_used=1 WHERE id=%s",
                 (code_stock_id,)
             )
 
-            # Ghi lịch sử giao dịch
             details = f"Code: {code_val}"
             cursor.execute(
                 "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s)",
@@ -1059,7 +1085,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# ADMIN COMMANDS
+# ADMIN COMMANDS (CẬP NHẬT LỆNH BỔ SUNG /checkgd & /checkbb)
 # ============================================================
 
 def is_admin(update: Update):
@@ -1076,8 +1102,91 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        # Lệnh thêm Code 3500đ (/code1) & 6000đ (/code2)
-        if cmd in ["/code1", "/code2"]:
+        # LỆNH MỚI: /checkgd [id] - Kiểm tra lịch sử giao dịch của user
+        if cmd == "/checkgd":
+            if not args:
+                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/checkgd ID_USER</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!")
+                return
+
+            txs = await db_query(
+                "SELECT type, amount, status, created_at, details FROM transactions WHERE user_id=%s ORDER BY id DESC LIMIT 20",
+                (target_id,),
+                fetchall=True
+            )
+            if not txs:
+                await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> chưa từng có giao dịch nào.", parse_mode="HTML")
+                return
+
+            msg = f"{E['CHART']} <b>LỊCH SỬ GIAO DỊCH CỦA ID:</b> <code>{target_id}</code>\n━━━━━━━━━━━━━━━━━━\n\n"
+            for tx_type, amount, status, created_at, details in txs:
+                icon = E['CHECK'] if status == "Thành công" else E['CROSS']
+                msg += (
+                    f"{icon} <b>Loại:</b> {tx_type}\n"
+                    f"{E['MONEY']} <b>Số tiền:</b> <code>{amount:,}đ</code>\n"
+                    f"{E['SHIELD']} <b>Chi tiết:</b> <code>{details or 'Không có'}</code>\n"
+                    f"{E['LIGHTNING']} <b>Thời gian:</b> <code>{created_at}</code>\n"
+                    "----------------------------------\n"
+                )
+            await message.reply_text(msg, parse_mode="HTML")
+
+        # LỆNH MỚI: /checkbb [id] - Kiểm tra danh sách bạn bè đã mời
+        elif cmd == "/checkbb":
+            if not args:
+                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/checkbb ID_USER</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!")
+                return
+
+            invited = await db_query(
+                "SELECT user_id, username, joined_at FROM users WHERE referrer_id=%s ORDER BY user_id DESC",
+                (target_id,),
+                fetchall=True
+            )
+            if not invited:
+                await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> chưa mời được bạn bè nào.", parse_mode="HTML")
+                return
+
+            msg = f"{E['TOP']} <b>DANH SÁCH BẠN BÈ MỜI BỞI ID:</b> <code>{target_id}</code> (Tổng: {len(invited)})\n━━━━━━━━━━━━━━━━━━\n\n"
+            buttons = []
+            row = []
+
+            for u_id, username, joined_at in invited:
+                uname_str = f"@{username}" if username else "Không có @username"
+                link_user = f"tg://user?id={u_id}"
+                
+                msg += (
+                    f"{E['CROWN']} <b>Tài khoản:</b> <a href='{link_user}'>{uname_str}</a>\n"
+                    f"{E['PLUS']} <b>ID:</b> <code>{u_id}</code>\n"
+                    f"{E['LIGHTNING']} <b>Ngày tham gia:</b> <code>{joined_at}</code>\n"
+                    "----------------------------------\n"
+                )
+
+                # Nút bấm đính kèm Icon ID bên dưới
+                btn_text = f"🆔 {u_id}"
+                row.append(InlineKeyboardButton(btn_text, url=f"tg://user?id={u_id}"))
+                if len(row) == 2:
+                    buttons.append(row)
+                    row = []
+
+            if row:
+                buttons.append(row)
+
+            await message.reply_text(
+                msg,
+                reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
+                parse_mode="HTML",
+                disable_web_page_preview=True
+            )
+
+        elif cmd in ["/code1", "/code2"]:
             type_code = 1 if cmd == "/code1" else 2
             price_label = "3.500đ" if type_code == 1 else "6.000đ"
             
@@ -1118,7 +1227,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
-        # Lệnh xóa Code 3500đ (/xoacode1) & 6000đ (/xoacode2)
         elif cmd in ["/xoacode1", "/xoacode2"]:
             type_code = 1 if cmd == "/xoacode1" else 2
             price_label = "3.500đ" if type_code == 1 else "6.000đ"
@@ -1170,7 +1278,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
-        # LỆNH MỚI: DÙNG ĐỂ XEM DANH SÁCH NHỮNG AI ĐÃ RÚT CODE FULL THÔNG TIN
         elif cmd == "/rutcode":
             rows = await db_query(
                 """
@@ -1285,7 +1392,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not u:
                 await message.reply_text("❌ Không tìm thấy user này.")
                 return
-            res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s", (target_id,), fetchone=True)
+            res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (target_id,), fetchone=True)
             invited_count = res[0]
             username = f"@{u[1]}" if u[1] else "Chưa đặt"
             referrer = u[4] if u[4] is not None else "Không có"
@@ -1420,7 +1527,7 @@ def main():
 
     admin_cmds = [
         "code1", "code2", "xoacode1", "xoacode2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
-        "cam", "mocam", "nap", "tru", "baotri"
+        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
