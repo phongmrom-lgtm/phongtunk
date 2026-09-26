@@ -70,7 +70,7 @@ REFERRAL_REWARD = 1000
 # CẤU HÌNH BẢO MẬT CHỐNG BUFF REF (CÁCH 5)
 MAX_ALLOW_USER_ID = 7500000000   # Ngưỡng ID chặn nick clone quá mới
 REF_RATE_LIMIT_WINDOW = 60       # Thời gian kiểm tra (giây)
-MAX_REFS_PER_WINDOW = 5          # Tối đa lượt ref trong window
+MAX_REFS_PER_WINDOW = 10         # Tối đa 10 lượt ref trong 60 giây
 
 ref_tracker = defaultdict(list)
 
