@@ -67,12 +67,8 @@ MIN_WITHDRAW = 3500   # Min rút tối thiểu 3,500đ
 MAX_WITHDRAW = 6000   # Min rút tối đa 6,000đ
 REFERRAL_REWARD = 1000
 
-# CẤU HÌNH BẢO MẬT CHỐNG BUFF REF (CÁCH 5)
+# CẤU HÌNH BẢO MẬT CHỐNG CLONE (Đã bỏ giới hạn 10 ref trong 60s)
 MAX_ALLOW_USER_ID = 7500000000   # Ngưỡng ID chặn nick clone quá mới
-REF_RATE_LIMIT_WINDOW = 60       # Thời gian kiểm tra (giây)
-MAX_REFS_PER_WINDOW = 10         # Tối đa 10 lượt ref trong 60 giây
-
-ref_tracker = defaultdict(list)
 
 
 # ============================================================
@@ -130,19 +126,6 @@ user_withdraw_state = {}
 def is_suspicious_account(user_id: int) -> bool:
     """Kiểm tra Telegram ID quá mới nghi vấn clone"""
     return user_id > MAX_ALLOW_USER_ID
-
-
-def is_ref_rate_limited(referrer_id: int) -> bool:
-    """Kiểm tra xem referrer có tuyển ref quá nhanh không"""
-    now = datetime.now()
-    cutoff = now - timedelta(seconds=REF_RATE_LIMIT_WINDOW)
-    ref_tracker[referrer_id] = [t for t in ref_tracker[referrer_id] if t >= cutoff]
-    
-    if len(ref_tracker[referrer_id]) >= MAX_REFS_PER_WINDOW:
-        return True
-    
-    ref_tracker[referrer_id].append(now)
-    return False
 
 
 # ============================================================
@@ -855,7 +838,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# CAPTCHA CALLBACK & THƯỞNG REF
+# CAPTCHA CALLBACK & THƯỞNG REF (Đã fix lỗi mất tiền, không cộng tiền)
 # ============================================================
 
 async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -891,7 +874,7 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh"""
+    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh (đã fix lỗi không cộng tiền)"""
     db_user = await db_query(
         "SELECT referrer_id FROM users WHERE user_id=%s",
         (user.id,),
@@ -912,30 +895,12 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Kiểm tra Rate Limit tuyển ref
-        if is_ref_rate_limited(ref_id):
-            logger.warning(f"Bỏ qua cộng ref cho {ref_id}: Tần suất nhận ref quá nhanh.")
-            try:
-                await context.bot.send_message(
-                    chat_id=ref_id,
-                    text=f"{E['WARN']} <b>CẢNH BÁO BẢO MẬT:</b> Hệ thống phát hiện bạn nhận lượt mời quá nhanh! Lượt thưởng mới đã bị vô hiệu hóa.",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-            await context.bot.send_message(
-                chat_id=user.id,
-                text=f"{E['LAUGH']} <b>XÁC MINH THÀNH CÔNG!</b>\n{E['ROCK']} Chào mừng bạn gia nhập hệ thống Bot VIP!",
-                reply_markup=get_main_keyboard(),
-                parse_mode="HTML",
-            )
-            return
-
         try:
             def reward_referrer(cursor):
+                # Dùng điều kiện check chuẩn xác chi tiết để tránh cộng trùng lặp nhưng không bị bỏ sót do lỗi string query
                 cursor.execute(
-                    "SELECT id FROM transactions WHERE user_id=%s AND details=%s",
-                    (ref_id, f"Mời {user.id}")
+                    "SELECT id FROM transactions WHERE user_id=%s AND (details = %s OR details LIKE %s)",
+                    (ref_id, f"Mời {user.id}", f"%{user.id}%")
                 )
                 if cursor.fetchone():
                     return False
@@ -1493,7 +1458,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_msg_tracker.clear()
             temp_bans.clear()
             user_withdraw_state.clear()
-            ref_tracker.clear()
             await db_query(
                 "INSERT INTO users (user_id, username, balance, joined_at) VALUES (%s, %s, 0, %s) ON CONFLICT (user_id) DO NOTHING",
                 (message.from_user.id, message.from_user.username or "", get_now_str()),
