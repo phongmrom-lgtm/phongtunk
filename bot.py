@@ -264,6 +264,13 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_referrer ON users(referrer_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock ON code_stock(type_code, is_used)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
+            
+            # ✅ UNIQUE INDEX CHỐNG CỘNG TRÙNG TIỀN MỜI BẠN BÈ
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_ref_reward 
+                ON transactions(user_id, details) 
+                WHERE type='Thưởng Mời Bạn'
+            """)
         conn.commit()
         logger.info("Database PostgreSQL đã sẵn sàng.")
 
@@ -838,7 +845,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# CAPTCHA CALLBACK & THƯỞNG REF (Đã fix lỗi mất tiền, không cộng tiền)
+# CAPTCHA CALLBACK & THƯỞNG REF (ĐÃ FIX LỖI CỘNG TRÙNG/SUBSTRING)
 # ============================================================
 
 async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -874,7 +881,7 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh (đã fix lỗi không cộng tiền)"""
+    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh"""
     db_user = await db_query(
         "SELECT referrer_id FROM users WHERE user_id=%s",
         (user.id,),
@@ -897,23 +904,37 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             def reward_referrer(cursor):
-                # Dùng điều kiện check chuẩn xác chi tiết để tránh cộng trùng lặp nhưng không bị bỏ sót do lỗi string query
+                """
+                ✅ FIX: Dùng so sánh CHÍNH XÁC (details = %s) thay vì LIKE 
+                để tránh match nhầm substring (VD: user 123 vs user 51234).
+                Kèm theo UNIQUE INDEX ở tầng DB để chống race condition.
+                """
+                detail_exact = f"Mời {user.id}"
+                
+                # Check chính xác đã có giao dịch thưởng cho user này chưa
                 cursor.execute(
-                    "SELECT id FROM transactions WHERE user_id=%s AND (details = %s OR details LIKE %s)",
-                    (ref_id, f"Mời {user.id}", f"%{user.id}%")
+                    "SELECT id FROM transactions WHERE user_id=%s AND type='Thưởng Mời Bạn' AND details=%s",
+                    (ref_id, detail_exact)
                 )
                 if cursor.fetchone():
+                    logger.info(f"[REF] Đã thưởng trước đó cho ref={ref_id}, skip user={user.id}")
                     return False
                 
-                details = f"Mời {user.id}"
+                # Insert giao dịch — nếu UNIQUE INDEX chặn (race) → rowcount=0
                 cursor.execute(
-                    "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (ref_id, "Thưởng Mời Bạn", REFERRAL_REWARD, "Thành công", get_now_str(), details),
+                    "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                    (ref_id, "Thưởng Mời Bạn", REFERRAL_REWARD, "Thành công", get_now_str(), detail_exact),
                 )
+                if cursor.rowcount == 0:
+                    logger.info(f"[REF] Bị chặn bởi UNIQUE INDEX (race) cho ref={ref_id}, user={user.id}")
+                    return False
+                
+                # Cộng tiền
                 cursor.execute(
                     "UPDATE users SET balance = balance + %s WHERE user_id=%s",
                     (REFERRAL_REWARD, ref_id),
                 )
+                logger.info(f"[REF] ✅ Cộng {REFERRAL_REWARD}đ cho ref={ref_id} từ user={user.id}")
                 return True
 
             rewarded = await db_transaction(reward_referrer)
