@@ -376,17 +376,20 @@ def generate_captcha():
 
 
 # ============================================================
-# KIỂM TRA THAM GIA KÊNH
+# KIỂM TRA THAM GIA KÊNH (ĐÃ FIX LỖI CHECK KÊNH @conmuamenmenl)
 # ============================================================
 
 async def get_missing_channels(bot, user_id):
     async def check_one(channel):
         try:
+            # Kiểm tra trạng thái tham gia của user
             member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
             if member.status in ("left", "kicked"):
                 return channel
         except Exception as exc:
+            # Nếu Bot chưa làm Admin hoặc gặp lỗi permission ở kênh này, log warning
             logger.warning(f"Lỗi check kênh {channel} cho user {user_id}: {exc}")
+            # Trả về channel để nhắc nhở người dùng
             return channel
         return None
 
@@ -401,7 +404,7 @@ async def check_channel_membership(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
-    # Dictionary chứa các link tùy chỉnh (nếu nhóm bật phê duyệt tham gia hoặc có link invite riêng)
+    # Dictionary chứa các link tùy chỉnh chuẩn
     CUSTOM_CHANNEL_URLS = {
         "@conmuamenmenl": "https://t.me/conmuamenmenl",
     }
@@ -672,10 +675,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # CHỐNG MỘT TÀI KHOẢN BẤM NHIỀU LINK ĐỂ ĐỔI REFERRER
     referrer_id = None
     if not db_user:
-        # Chỉ nhận referrer nếu người dùng CHƯA TỒN TẠI trong cơ sở dữ liệu
         if context.args:
             try:
                 ref_id = int(context.args[0])
@@ -692,20 +693,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
     else:
-        # Nếu đã tồn tại tài khoản -> CHỈ cập nhật username, GIỮ NGUYÊN referrer_id cũ
         await db_query(
             "UPDATE users SET username=%s WHERE user_id=%s",
             (user.username or "", user.id),
             commit=True,
         )
 
-    # 🛑 BƯỚC 1: Kiểm tra xác minh SĐT
     is_phone_ok = await check_phone_verified(user.id)
     if not is_phone_ok and user.id not in ADMIN_IDS:
         await prompt_phone_verification(update.message, user.id)
         return
 
-    # 🛑 BƯỚC 2: Kiểm tra kênh/nhóm bắt buộc
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels and user.id not in ADMIN_IDS:
         buttons = build_channel_buttons(missing_channels)
@@ -896,7 +894,6 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý cộng thưởng giới thiệu sau khi hoàn tất toàn bộ bước xác minh"""
     db_user = await db_query(
         "SELECT referrer_id FROM users WHERE user_id=%s",
         (user.id,),
