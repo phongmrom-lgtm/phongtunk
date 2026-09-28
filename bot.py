@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
 import asyncio
 import logging
 import os
@@ -9,10 +7,13 @@ import urllib.parse
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from dotenv import load_dotenv
 import psycopg
 from psycopg.rows import tuple_row
 from psycopg_pool import ConnectionPool
 import pytz
+
+load_dotenv()
 
 from telegram import (
     InlineKeyboardButton,
@@ -26,10 +27,10 @@ from telegram import (
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
+    ChatMemberHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
-    ChatMemberHandler,
     filters,
 )
 
@@ -68,7 +69,6 @@ MAX_WITHDRAW = 6000   # Min rút tối đa 6,000đ
 REFERRAL_REWARD = 1000
 
 # CẤU HÌNH BẢO MẬT CHỐNG CLONE
-# Nâng ngưỡng ID lên 9 Tỷ để tránh chặn nhầm tài khoản Telegram mới thật
 MAX_ALLOW_USER_ID = 9000000000   
 
 
@@ -108,7 +108,6 @@ E = {
     "EYES": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
     "PHONE": '<tg-emoji emoji-id="5465465194056525619">📱</tg-emoji>',
     "WARN": '<tg-emoji emoji-id="5463054218459884779">🌡</tg-emoji>',
-    # Emoji Custom
     "UP": '<tg-emoji emoji-id="5449683594425410231">🔼</tg-emoji>',
     "DOWN": '<tg-emoji emoji-id="5447183459602669338">🔽</tg-emoji>',
     "CANDLE": '<tg-emoji emoji-id="5451882707875276247">🕯</tg-emoji>',
@@ -273,7 +272,6 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock ON code_stock(type_code, is_used)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
             
-            # ✅ XÓA BẢN GHI TRÙNG LẶP TRƯỚC KHI TẠO UNIQUE INDEX
             cursor.execute("""
                 DELETE FROM transactions t1
                 USING transactions t2
@@ -284,7 +282,6 @@ def _init_db_sync():
                   AND t2.type = 'Thưởng Mời Bạn';
             """)
 
-            # ✅ UNIQUE INDEX CHỐNG CỘNG TRÙNG TIỀN MỜI BẠN BÈ
             cursor.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_ref_reward 
                 ON transactions(user_id, details) 
@@ -300,6 +297,16 @@ async def init_db():
 
 def get_now_str():
     return datetime.now(TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
+
+
+async def get_valid_referrals_count(user_id: int) -> int:
+    """Đếm chính xác số người đã mời thành công VÀ ĐÃ ĐƯỢC CỘNG TIỀN THƯỞNG"""
+    res = await db_query(
+        "SELECT COUNT(*) FROM transactions WHERE user_id=%s AND type='Thưởng Mời Bạn' AND status='Thành công'",
+        (user_id,),
+        fetchone=True
+    )
+    return res[0] if res else 0
 
 
 # ============================================================
@@ -325,7 +332,6 @@ def get_main_keyboard():
 
 
 def get_contact_keyboard():
-    """Keyboard xin số điện thoại chuẩn nút bấm Share Contact của Telegram"""
     keyboard = [
         [KeyboardButton("📱 XÁC MINH SỐ ĐIỆN THOẠI", request_contact=True)]
     ]
@@ -345,7 +351,7 @@ async def is_maintenance():
 
 
 # ============================================================
-# CAPTCHA ĐỘNG (BIẾN THIÊN)
+# CAPTCHA ĐỘNG
 # ============================================================
 
 def generate_captcha():
@@ -358,7 +364,7 @@ def generate_captcha():
         a = random.randint(20, 80)
         b = random.randint(1, a)
         correct_ans = a - b
-    else:  # Multi
+    else:
         a = random.randint(2, 12)
         b = random.randint(2, 12)
         correct_ans = a * b
@@ -601,7 +607,6 @@ async def ensure_user_exists(update: Update):
 # ============================================================
 
 async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
-    """Gửi yêu cầu xác minh số điện thoại tới người dùng"""
     msg = (f"{text_prefix}\n\n" if text_prefix else "")
     msg += (
         f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI TÀI KHOẢN</b>\n"
@@ -626,7 +631,6 @@ async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
 
 
 async def check_phone_verified(user_id) -> bool:
-    """Kiểm tra xem người dùng đã xác minh SĐT trong DB chưa"""
     row = await db_query("SELECT phone_number FROM users WHERE user_id=%s", (user_id,), fetchone=True)
     return bool(row and row[0])
 
@@ -670,37 +674,32 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # ✅ CHỐNG MỘT TÀI KHOẢN BẤM NHIỀU LINK ĐỂ ĐỔI REFERRER
     referrer_id = None
-    if context.args:
-        try:
-            ref_id = int(context.args[0])
-            if ref_id != user.id:
-                # Kiểm tra referrer_id có tồn tại trong hệ thống không
-                ref_exists = await db_query("SELECT user_id FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
-                if ref_exists:
-                    referrer_id = ref_id
-        except (ValueError, TypeError):
-            pass
-
     if not db_user:
+        # Chỉ nhận referrer nếu người dùng CHƯA TỒN TẠI trong cơ sở dữ liệu
+        if context.args:
+            try:
+                ref_id = int(context.args[0])
+                if ref_id != user.id:
+                    ref_exists = await db_query("SELECT user_id FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
+                    if ref_exists:
+                        referrer_id = ref_id
+            except (ValueError, TypeError):
+                pass
+
         await db_query(
             "INSERT INTO users (user_id, username, balance, referrer_id, joined_at) VALUES (%s, %s, 0, %s, %s) ON CONFLICT (user_id) DO NOTHING",
             (user.id, user.username or "", referrer_id, get_now_str()),
             commit=True,
         )
     else:
-        if referrer_id and db_user[2] is None:
-            await db_query(
-                "UPDATE users SET username=%s, referrer_id=%s WHERE user_id=%s",
-                (user.username or "", referrer_id, user.id),
-                commit=True,
-            )
-        else:
-            await db_query(
-                "UPDATE users SET username=%s WHERE user_id=%s",
-                (user.username or "", user.id),
-                commit=True,
-            )
+        # Nếu đã tồn tại tài khoản -> CHỈ cập nhật username, GIỮ NGUYÊN referrer_id cũ
+        await db_query(
+            "UPDATE users SET username=%s WHERE user_id=%s",
+            (user.username or "", user.id),
+            commit=True,
+        )
 
     # 🛑 BƯỚC 1: Kiểm tra xác minh SĐT
     is_phone_ok = await check_phone_verified(user.id)
@@ -789,7 +788,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         return
 
-    # Kiểm tra SĐT trước
     if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
         try:
             await query.delete_message()
@@ -823,7 +821,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 # ============================================================
 
 async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Tiếp nhận Contact người dùng chia sẻ nút Share Contact"""
     message = update.effective_message
     user = update.effective_user
     if not message or not message.contact or not user:
@@ -839,7 +836,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     phone = contact.phone_number
-    # Lưu phone number vào database
     await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
 
     await message.reply_text(
@@ -848,7 +844,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    # Sau khi có SĐT -> Chuyển sang bước kiểm tra kênh hoặc Captcha
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels and user.id not in ADMIN_IDS:
         buttons = build_channel_buttons(missing_channels)
@@ -913,7 +908,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     if db_user and db_user[0]:
         ref_id = db_user[0]
 
-        # Kiểm tra Telegram ID clone quá mới
         if is_suspicious_account(user.id):
             logger.warning(f"Bỏ qua cộng ref cho {ref_id}: ID {user.id} quá mới nghi vấn clone.")
             await context.bot.send_message(
@@ -1007,12 +1001,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 🛑 BẮT BỘC 1: Kiểm tra xem user đã xác minh SĐT chưa
     if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
         await prompt_phone_verification(message, user.id)
         return
 
-    # 🛑 BẮT BỘC 2: Kiểm tra kênh tham gia
     if user.id not in ADMIN_IDS:
         missing_channels = await get_missing_channels(context.bot, user.id)
         if missing_channels:
@@ -1033,8 +1025,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
         balance = db_user[1]
         phone_str = db_user[6] if len(db_user) > 6 and db_user[6] else "Chưa xác minh"
-        res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (user.id,), fetchone=True)
-        invited_count = res[0]
+        
+        # ✅ Đếm chính xác số bạn bè ĐÃ HOÀN THÀNH xác minh & cộng tiền
+        invited_count = await get_valid_referrals_count(user.id)
+        
         res_withdraw = await db_query(
             "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=%s AND type LIKE 'Mua Code%%' AND status='Thành công'",
             (user.id,),
@@ -1047,7 +1041,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{E['POINT_RIGHT']} <b>ID:</b> <code>{user.id}</code>\n"
             f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
             f"{E['LIKE']} <b>Số dư:</b> <code>{balance:,}đ</code>\n"
-            f"{E['ROCK']} <b>Đã mời:</b> <code>{invited_count}</code> người\n"
+            f"{E['ROCK']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
             f"{E['HANDSHAKE']} <b>Đã dùng mua Code:</b> <code>{total_withdraw:,}đ</code>"
         )
         await message.reply_text(msg, parse_mode="HTML")
@@ -1076,13 +1070,14 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await message.reply_text(msg, parse_mode="HTML")
     elif text in ["Top", "🔝 Top"]:
+        # ✅ TOP CHỈ ĐẾM CÁC LƯỢT MỜI ĐÃ ĐƯỢC CỘNG TIỀN THẬT
         top_users = await db_query(
             """
-            SELECT u.user_id, u.username, COUNT(r.user_id) AS ref_count
-            FROM users u
-            JOIN users r ON r.referrer_id = u.user_id
-            WHERE u.is_banned = 0 AND r.is_banned = 0
-            GROUP BY u.user_id, u.username
+            SELECT t.user_id, u.username, COUNT(t.id) AS ref_count
+            FROM transactions t
+            JOIN users u ON u.user_id = t.user_id
+            WHERE t.type = 'Thưởng Mời Bạn' AND t.status = 'Thành công' AND u.is_banned = 0
+            GROUP BY t.user_id, u.username
             ORDER BY ref_count DESC
             LIMIT 10
             """,
@@ -1285,9 +1280,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        # ============================================================
-        # LỆNH /DL ID CHECK THÔNG TIN VÀ NGƯỜI GIỚI THIỆU
-        # ============================================================
         if cmd == "/dl":
             if not args:
                 await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/dl USER_ID</code>", parse_mode="HTML")
@@ -1298,7 +1290,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.")
                 return
 
-            # Lấy thông tin đối tượng
             u = await db_query("SELECT user_id, username, balance, referrer_id, is_banned, is_withdraw_banned, joined_at, phone_number FROM users WHERE user_id=%s", (target_id,), fetchone=True)
             if not u:
                 await message.reply_text(f"{E['CROSS']} Không tìm thấy ID <code>{target_id}</code> trong cơ sở dữ liệu.", parse_mode="HTML")
@@ -1333,8 +1324,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             u_phone = u[7] if u[7] else "Chưa xác minh SĐT"
             u_bot_link = f"https://t.me/{bot_username}?start={u[0]}"
 
-            res_ref = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (target_id,), fetchone=True)
-            invited_count = res_ref[0] if res_ref else 0
+            invited_count = await get_valid_referrals_count(target_id)
 
             msg = (
                 f"{E['CANDLE']} <b>KIỂM TRA THÔNG TIN ID:</b> <code>{target_id}</code>\n"
@@ -1344,7 +1334,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{E['PHONE']} <b>SĐT:</b> <code>{u_phone}</code>\n"
                 f"{E['CROWN']} <b>User:</b> {u_uname}\n"
                 f"{E['MONEY']} <b>Số dư:</b> <code>{u[2]:,}đ</code>\n"
-                f"{E['CHART']} <b>Đã mời:</b> <code>{invited_count}</code> người\n"
+                f"{E['CHART']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
                 f"{E['CHART_DOWN']} <b>Link Bot Ref:</b> <code>{u_bot_link}</code>\n"
                 f"{E['PROHIBITED']} <b>Khóa TK:</b> <b>{'CÓ' if u[4] else 'KHÔNG'}</b>\n"
                 f"{E['NO_ENTRY']} <b>Cấm rút:</b> <b>{'CÓ' if u[5] else 'KHÔNG'}</b>\n"
@@ -1644,8 +1634,8 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not u:
                 await message.reply_text("❌ Không tìm thấy user này.")
                 return
-            res = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (target_id,), fetchone=True)
-            invited_count = res[0]
+            
+            invited_count = await get_valid_referrals_count(target_id)
             username = f"@{u[1]}" if u[1] else "Chưa đặt"
             referrer = u[4] if u[4] is not None else "Không có"
             phone_val = u[8] if len(u) > 8 and u[8] else "Chưa xác minh"
@@ -1657,7 +1647,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{E['ROCK']} Username: {username}\n"
                 f"{E['LIKE']} Số dư: <code>{u[2]:,}đ</code>\n"
                 f"{E['POINT_RIGHT']} Khách giới thiệu: <code>{referrer}</code>\n"
-                f"{E['ROCK']} Tổng đã mời: <code>{invited_count}</code> người\n"
+                f"{E['ROCK']} Đã mời thành công: <code>{invited_count}</code> người\n"
                 f"{E['DISLIKE']} Khóa TK: <b>{'CÓ' if u[5] else 'KHÔNG'}</b>\n"
                 f"{E['DIZZY']} Cấm rút code: <b>{'CÓ' if u[6] else 'KHÔNG'}</b>\n"
                 f"{E['BANDAGE']} Tham gia: <code>{u[7]}</code>"
@@ -1779,7 +1769,6 @@ def main():
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     
-    # Handler tiếp nhận Contact cho xác minh SĐT
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
 
     admin_cmds = [
