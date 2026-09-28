@@ -67,8 +67,9 @@ MIN_WITHDRAW = 3500   # Min rút tối thiểu 3,500đ
 MAX_WITHDRAW = 6000   # Min rút tối đa 6,000đ
 REFERRAL_REWARD = 1000
 
-# CẤU HÌNH BẢO MẬT CHỐNG CLONE (Đã bỏ giới hạn 10 ref trong 60s)
-MAX_ALLOW_USER_ID = 7500000000   # Ngưỡng ID chặn nick clone quá mới
+# CẤU HÌNH BẢO MẬT CHỐNG CLONE
+# Nâng ngưỡng ID lên 9 Tỷ để tránh chặn nhầm tài khoản Telegram mới thật
+MAX_ALLOW_USER_ID = 9000000000   
 
 
 # ============================================================
@@ -107,6 +108,13 @@ E = {
     "EYES": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
     "PHONE": '<tg-emoji emoji-id="5465465194056525619">📱</tg-emoji>',
     "WARN": '<tg-emoji emoji-id="5463054218459884779">🌡</tg-emoji>',
+    # Emoji Custom
+    "UP": '<tg-emoji emoji-id="5449683594425410231">🔼</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5447183459602669338">🔽</tg-emoji>',
+    "CANDLE": '<tg-emoji emoji-id="5451882707875276247">🕯</tg-emoji>',
+    "CHART_UP": '<tg-emoji emoji-id="5244837092042750681">📈</tg-emoji>',
+    "CHART_DOWN": '<tg-emoji emoji-id="5246762912428603768">📉</tg-emoji>',
+    "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
 }
 
 
@@ -589,7 +597,7 @@ async def ensure_user_exists(update: Update):
 
 
 # ============================================================
-# BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI (Yêu cầu đầu tiên)
+# BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI
 # ============================================================
 
 async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
@@ -667,7 +675,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             ref_id = int(context.args[0])
             if ref_id != user.id:
-                referrer_id = ref_id
+                # Kiểm tra referrer_id có tồn tại trong hệ thống không
+                ref_exists = await db_query("SELECT user_id FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
+                if ref_exists:
+                    referrer_id = ref_id
         except (ValueError, TypeError):
             pass
 
@@ -996,7 +1007,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 🛑 BẮT BỘC 1: Kiểm tra xem user đã xác minh SĐT chưa (Cho cả người cũ & mới)
+    # 🛑 BẮT BỘC 1: Kiểm tra xem user đã xác minh SĐT chưa
     if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
         await prompt_phone_verification(message, user.id)
         return
@@ -1274,7 +1285,77 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        if cmd == "/checkgd":
+        # ============================================================
+        # LỆNH /DL ID CHECK THÔNG TIN VÀ NGƯỜI GIỚI THIỆU
+        # ============================================================
+        if cmd == "/dl":
+            if not args:
+                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/dl USER_ID</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except (ValueError, TypeError):
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.")
+                return
+
+            # Lấy thông tin đối tượng
+            u = await db_query("SELECT user_id, username, balance, referrer_id, is_banned, is_withdraw_banned, joined_at, phone_number FROM users WHERE user_id=%s", (target_id,), fetchone=True)
+            if not u:
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy ID <code>{target_id}</code> trong cơ sở dữ liệu.", parse_mode="HTML")
+                return
+
+            try:
+                bot_info = await context.bot.get_me()
+                bot_username = bot_info.username
+            except Exception:
+                bot_username = "Bot"
+
+            ref_id = u[3]
+            ref_info_text = f"{E['DOWN']} <b>Không có (Không bấm link của ai)</b>"
+            
+            if ref_id:
+                ref_user = await db_query("SELECT user_id, username, phone_number FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
+                if ref_user:
+                    ref_uname = f"@{ref_user[1]}" if ref_user[1] else "Chưa đặt username"
+                    ref_phone = ref_user[2] if ref_user[2] else "Chưa xác minh SĐT"
+                    ref_bot_link = f"https://t.me/{bot_username}?start={ref_id}"
+                    ref_info_text = (
+                        f"{E['CHECK2']} <b>NGƯỜI GIỚI THIỆU:</b>\n"
+                        f"{E['UP']} <b>ID:</b> <code>{ref_user[0]}</code>\n"
+                        f"{E['PHONE']} <b>SĐT:</b> <code>{ref_phone}</code>\n"
+                        f"{E['CROWN']} <b>User:</b> {ref_uname}\n"
+                        f"{E['CHART_UP']} <b>Link Bot Ref:</b> <code>{ref_bot_link}</code>"
+                    )
+                else:
+                    ref_info_text = f"{E['WARN']} <b>ID Giới thiệu:</b> <code>{ref_id}</code> (Dữ liệu đã bị xoá)"
+
+            u_uname = f"@{u[1]}" if u[1] else "Chưa đặt username"
+            u_phone = u[7] if u[7] else "Chưa xác minh SĐT"
+            u_bot_link = f"https://t.me/{bot_username}?start={u[0]}"
+
+            res_ref = await db_query("SELECT COUNT(*) FROM users WHERE referrer_id=%s AND is_banned=0", (target_id,), fetchone=True)
+            invited_count = res_ref[0] if res_ref else 0
+
+            msg = (
+                f"{E['CANDLE']} <b>KIỂM TRA THÔNG TIN ID:</b> <code>{target_id}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['CHART_UP']} <b>THÔNG TIN ĐỐI TƯỢNG:</b>\n"
+                f"{E['UP']} <b>ID:</b> <code>{u[0]}</code>\n"
+                f"{E['PHONE']} <b>SĐT:</b> <code>{u_phone}</code>\n"
+                f"{E['CROWN']} <b>User:</b> {u_uname}\n"
+                f"{E['MONEY']} <b>Số dư:</b> <code>{u[2]:,}đ</code>\n"
+                f"{E['CHART']} <b>Đã mời:</b> <code>{invited_count}</code> người\n"
+                f"{E['CHART_DOWN']} <b>Link Bot Ref:</b> <code>{u_bot_link}</code>\n"
+                f"{E['PROHIBITED']} <b>Khóa TK:</b> <b>{'CÓ' if u[4] else 'KHÔNG'}</b>\n"
+                f"{E['NO_ENTRY']} <b>Cấm rút:</b> <b>{'CÓ' if u[5] else 'KHÔNG'}</b>\n"
+                f"{E['BANDAGE']} <b>Tham gia:</b> <code>{u[6]}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{ref_info_text}"
+            )
+
+            await message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=True)
+
+        elif cmd == "/checkgd":
             if not args:
                 await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/checkgd ID_USER</code>", parse_mode="HTML")
                 return
@@ -1703,7 +1784,7 @@ def main():
 
     admin_cmds = [
         "code1", "code2", "xoacode1", "xoacode2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
-        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb"
+        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
