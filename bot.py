@@ -47,7 +47,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BUỘC kiểm tra tham gia
+# Kênh/Nhóm BẮT BUỘC kiểm tra tham gia (Đã thêm @conmuamenmenl)
 REQUIRED_CHECK_CHANNELS = [
     "@sanhugame",
     "@sancode22",
@@ -57,6 +57,7 @@ REQUIRED_CHECK_CHANNELS = [
     "@vtc345",
     "@vtc567",
     "@hocviencbm",
+    "@conmuamenmenl",
 ]
 
 # Kênh hiển thị thêm KHÔNG kiểm tra tham gia
@@ -400,14 +401,19 @@ async def check_channel_membership(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
+    # Dictionary chứa các link tùy chỉnh (nếu nhóm bật phê duyệt tham gia hoặc có link invite riêng)
+    CUSTOM_CHANNEL_URLS = {
+        "@conmuamenmenl": "https://t.me/conmuamenmenl",
+    }
+
     buttons = []
     for ch in missing_channels:
-        channel_url = f"https://t.me/{ch.replace('@', '')}"
+        channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
         buttons.append([
             InlineKeyboardButton(f"{E['POINT_RIGHT']} Tham gia: {ch}", url=channel_url)
         ])
     for ch in OPTIONAL_DISPLAY_CHANNELS:
-        channel_url = f"https://t.me/{ch.replace('@', '')}"
+        channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
         buttons.append([
             InlineKeyboardButton(f"{E['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=channel_url)
         ])
