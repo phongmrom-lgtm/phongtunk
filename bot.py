@@ -68,9 +68,6 @@ MIN_WITHDRAW = 3500   # Min rút tối thiểu 3,500đ
 MAX_WITHDRAW = 6000   # Min rút tối đa 6,000đ
 REFERRAL_REWARD = 1000
 
-# CẤU HÌNH BẢO MẬT CHỐNG CLONE
-MAX_ALLOW_USER_ID = 9000000000   
-
 
 # ============================================================
 # DANH SÁCH PREMIUM EMOJI
@@ -128,11 +125,6 @@ TEMP_BAN_MINUTES = 2
 user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
-
-
-def is_suspicious_account(user_id: int) -> bool:
-    """Kiểm tra Telegram ID quá mới nghi vấn clone"""
-    return user_id > MAX_ALLOW_USER_ID
 
 
 # ============================================================
@@ -674,7 +666,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ✅ CHỐNG MỘT TÀI KHOẢN BẤM NHIỀU LINK ĐỂ ĐỔI REFERRER
+    # CHỐNG MỘT TÀI KHOẢN BẤM NHIỀU LINK ĐỂ ĐỔI REFERRER
     referrer_id = None
     if not db_user:
         # Chỉ nhận referrer nếu người dùng CHƯA TỒN TẠI trong cơ sở dữ liệu
@@ -908,16 +900,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     if db_user and db_user[0]:
         ref_id = db_user[0]
 
-        if is_suspicious_account(user.id):
-            logger.warning(f"Bỏ qua cộng ref cho {ref_id}: ID {user.id} quá mới nghi vấn clone.")
-            await context.bot.send_message(
-                chat_id=user.id,
-                text=f"{E['LAUGH']} <b>XÁC MINH THÀNH CÔNG!</b>\n{E['ROCK']} Chào mừng bạn gia nhập hệ thống Bot VIP!",
-                reply_markup=get_main_keyboard(),
-                parse_mode="HTML",
-            )
-            return
-
         try:
             def reward_referrer(cursor):
                 detail_exact = f"Mời {user.id}"
@@ -1026,7 +1008,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         balance = db_user[1]
         phone_str = db_user[6] if len(db_user) > 6 and db_user[6] else "Chưa xác minh"
         
-        # ✅ Đếm chính xác số bạn bè ĐÃ HOÀN THÀNH xác minh & cộng tiền
         invited_count = await get_valid_referrals_count(user.id)
         
         res_withdraw = await db_query(
@@ -1070,7 +1051,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await message.reply_text(msg, parse_mode="HTML")
     elif text in ["Top", "🔝 Top"]:
-        # ✅ TOP CHỈ ĐẾM CÁC LƯỢT MỜI ĐÃ ĐƯỢC CỘNG TIỀN THẬT
         top_users = await db_query(
             """
             SELECT t.user_id, u.username, COUNT(t.id) AS ref_count
