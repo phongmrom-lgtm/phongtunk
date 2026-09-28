@@ -265,6 +265,17 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock ON code_stock(type_code, is_used)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
             
+            # ✅ XÓA BẢN GHI TRÙNG LẶP TRƯỚC KHI TẠO UNIQUE INDEX
+            cursor.execute("""
+                DELETE FROM transactions t1
+                USING transactions t2
+                WHERE t1.id > t2.id
+                  AND t1.user_id = t2.user_id
+                  AND t1.details = t2.details
+                  AND t1.type = 'Thưởng Mời Bạn'
+                  AND t2.type = 'Thưởng Mời Bạn';
+            """)
+
             # ✅ UNIQUE INDEX CHỐNG CỘNG TRÙNG TIỀN MỜI BẠN BÈ
             cursor.execute("""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_ref_reward 
@@ -845,7 +856,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# CAPTCHA CALLBACK & THƯỞNG REF (ĐÃ FIX LỖI CỘNG TRÙNG/SUBSTRING)
+# CAPTCHA CALLBACK & THƯỞNG REF
 # ============================================================
 
 async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -904,14 +915,8 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
 
         try:
             def reward_referrer(cursor):
-                """
-                ✅ FIX: Dùng so sánh CHÍNH XÁC (details = %s) thay vì LIKE 
-                để tránh match nhầm substring (VD: user 123 vs user 51234).
-                Kèm theo UNIQUE INDEX ở tầng DB để chống race condition.
-                """
                 detail_exact = f"Mời {user.id}"
                 
-                # Check chính xác đã có giao dịch thưởng cho user này chưa
                 cursor.execute(
                     "SELECT id FROM transactions WHERE user_id=%s AND type='Thưởng Mời Bạn' AND details=%s",
                     (ref_id, detail_exact)
@@ -920,7 +925,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
                     logger.info(f"[REF] Đã thưởng trước đó cho ref={ref_id}, skip user={user.id}")
                     return False
                 
-                # Insert giao dịch — nếu UNIQUE INDEX chặn (race) → rowcount=0
                 cursor.execute(
                     "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
                     (ref_id, "Thưởng Mời Bạn", REFERRAL_REWARD, "Thành công", get_now_str(), detail_exact),
@@ -929,7 +933,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
                     logger.info(f"[REF] Bị chặn bởi UNIQUE INDEX (race) cho ref={ref_id}, user={user.id}")
                     return False
                 
-                # Cộng tiền
                 cursor.execute(
                     "UPDATE users SET balance = balance + %s WHERE user_id=%s",
                     (REFERRAL_REWARD, ref_id),
