@@ -75,62 +75,63 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ ĐỔI THEO ID CỦA BẠN)
+# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ CẬP NHẬT THEO 10 ID MỚI)
 # ============================================================
 E = {
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "PROHIBITED": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
-    "NO_ENTRY": '<tg-emoji emoji-id="5260293700088511294">⛔️</tg-emoji>',
-    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "BAG": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "CHART_DOWN": '<tg-emoji emoji-id="5246762912428603768">📉</tg-emoji>',
-    "CHART_UP": '<tg-emoji emoji-id="5244837092042750681">📈</tg-emoji>',
-    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
-    "TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
     "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
-    "PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
-    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️</tg-emoji>',
-    "BAG2": '<tg-emoji emoji-id="5406683434124859552">🛍</tg-emoji>',
-    "GOLD": '<tg-emoji emoji-id="5440539497383087970">🥇</tg-emoji>',
-    "SILVER": '<tg-emoji emoji-id="5447203607294265305">🥈</tg-emoji>',
-    "BRONZE": '<tg-emoji emoji-id="5453902265922376865">🥉</tg-emoji>',
-    "SHIELD": '<tg-emoji emoji-id="5251203410396458957">🛡</tg-emoji>',
-    "LINK": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
-    "SEARCH": '<tg-emoji emoji-id="5231012545799666522">🔍</tg-emoji>',
-    "MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
-    "MONEY2": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
     "EXCHANGE": '<tg-emoji emoji-id="5402186569006210455">💱</tg-emoji>',
-    "EYES": '<tg-emoji emoji-id="5210956306952758910">👀</tg-emoji>',
+    "MONEY": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "MONEY2": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "CHART_DOWN": '<tg-emoji emoji-id="5429518319243775957">📉</tg-emoji>',
+    "CHART_UP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
+    "POINT_RIGHT": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
+    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "COMET": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "BAG": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "BAG2": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
     "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "ALARM": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
-    "CALENDAR": '<tg-emoji emoji-id="5413879192267805083">🗓</tg-emoji>',
-    "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
-    "DROP": '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>',
-    "SNOW": '<tg-emoji emoji-id="5449449325434266744">❄️</tg-emoji>',
-    "GIFT": '<tg-emoji emoji-id="5442939099906325301">🎁</tg-emoji>',
-    "COIN": '<tg-emoji emoji-id="5382164415019768638">🪙</tg-emoji>',
-    "EXCHANGE2": '<tg-emoji emoji-id="5377336227533969892">💱</tg-emoji>',
-    "CART": '<tg-emoji emoji-id="5440841102871517055">🛒</tg-emoji>',
-    "LINK2": '<tg-emoji emoji-id="5440410042773824003">🔗</tg-emoji>',
-    "PIG": '<tg-emoji emoji-id="5417831807720642261">🐷</tg-emoji>',
-    "SCALE": '<tg-emoji emoji-id="5461152608804689572">⚖️</tg-emoji>',
-    "MAIL": '<tg-emoji emoji-id="5472239203590888751">📩</tg-emoji>',
-    "PHONE": '<tg-emoji emoji-id="5213179235996294999">📞</tg-emoji>',
+    "PROHIBITED": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "NO_ENTRY": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "TOP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
+    "CROWN": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "PLUS": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5429518319243775957">📉</tg-emoji>',
+    "GOLD": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "SILVER": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "BRONZE": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "SHIELD": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "LINK": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "SEARCH": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "EYES": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "ALARM": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "CALENDAR": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "HOURGLASS": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "DROP": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "SNOW": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "GIFT": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "COIN": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "EXCHANGE2": '<tg-emoji emoji-id="5402186569006210455">💱</tg-emoji>',
+    "CART": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "LINK2": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "PIG": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "SCALE": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "MAIL": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "PHONE": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
     "LIKE": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "DISLIKE": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
-    "WARN": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
-    "CROSS": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
-    "ROCK": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
-    "LOVE_FACE": '<tg-emoji emoji-id="5442939099906325301">🎁</tg-emoji>',
-    "WAVE": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
-    "BANDAGE": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
-    "DIZZY": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
-    "THERMOMETER": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
-    "HANDSHAKE": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
+    "DISLIKE": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "WARN": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "CROSS": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "ROCK": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "LOVE_FACE": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "WAVE": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
+    "BANDAGE": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "DIZZY": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "THERMOMETER": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "HANDSHAKE": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
     "SWORD": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "POOP": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
-    "UP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "POOP": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
+    "UP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
     "CANDLE": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
     "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
 }
@@ -234,7 +235,6 @@ def _init_db_sync():
                 )
                 """
             )
-            # Tự động thêm cột ip_address và skip_ip
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS skip_ip INTEGER DEFAULT 0;")
 
@@ -958,10 +958,10 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Đã hợp lệ tất cả tiêu chí
     await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
 
-    # Hiển thị thông báo chuyển bước theo yêu cầu
+    # Hiển thị thông báo chuyển bước
     await message.reply_text(
-        "✔️ Xác minh số điện thoại thành công!\n\n"
-        "⌛ Đang kiểm tra điều kiện tiếp theo...",
+        f"{E['CHECK']} Xác minh số điện thoại thành công!\n\n"
+        f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
         parse_mode="HTML",
         reply_markup=ReplyKeyboardRemove()
     )
@@ -1004,7 +1004,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         user_ip = data.get("ip")
 
         if not user_ip:
-            await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!")
+            await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
             return
 
         # Kiểm tra trùng IP (Chống Clone)
@@ -1036,8 +1036,8 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
         await message.reply_text(
-            "✔️ Xác minh số điện thoại thành công!\n\n"
-            "⌛ Đang kiểm tra điều kiện tiếp theo...",
+            f"{E['CHECK']} Xác minh số điện thoại thành công!\n\n"
+            f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
@@ -1061,7 +1061,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     except Exception as exc:
         logger.exception("Lỗi khi xử lý dữ liệu từ MiniApp: %s", exc)
-        await message.reply_text("❌ Có lỗi xảy ra trong quá trình xác minh IP.")
+        await message.reply_text(f"{E['CROSS']} Có lỗi xảy ra trong quá trình xác minh IP.", parse_mode="HTML")
 
 
 # ============================================================
@@ -1081,7 +1081,7 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     correct_ans = context.user_data.get("captcha_ans")
     if selected_ans != correct_ans:
         try:
-            await query.answer("❌ Phép tính sai! Vui lòng thử lại.", show_alert=True)
+            await query.answer("Phép tính sai! Vui lòng thử lại.", show_alert=True)
         except Exception:
             pass
         await send_captcha_challenge(
@@ -1092,7 +1092,7 @@ async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     context.user_data.pop("captcha_ans", None)
     try:
-        await query.answer("✅ Xác minh CAPTCHA thành công!")
+        await query.answer("Xác minh CAPTCHA thành công!")
         await query.delete_message()
     except Exception:
         pass
@@ -1253,10 +1253,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             bot_username = bot_info.username
         except Exception as exc:
             logger.exception("Không lấy được username bot: %s", exc)
-            await message.reply_text("❌ Không lấy được thông tin bot. Vui lòng thử lại.")
+            await message.reply_text(f"{E['CROSS']} Không lấy được thông tin bot. Vui lòng thử lại.", parse_mode="HTML")
             return
         if not bot_username:
-            await message.reply_text("❌ Bot chưa có username, không thể tạo link mời.")
+            await message.reply_text(f"{E['CROSS']} Bot chưa có username, không thể tạo link mời.", parse_mode="HTML")
             return
         ref_link = f"https://t.me/{bot_username}?start={user.id}"
         msg = (
@@ -1358,10 +1358,10 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fetchone=True,
     )
     if not db_user or db_user[1] == 1:
-        await query.edit_message_text(f"{E['DISLIKE']} Tài khoản của bạn đã bị khóa vĩnh viễn!")
+        await query.edit_message_text(f"{E['DISLIKE']} <b>Tài khoản của bạn đã bị khóa vĩnh viễn!</b>", parse_mode="HTML")
         return
     if db_user[2] == 1:
-        await query.edit_message_text(f"{E['DISLIKE']} Tài khoản của bạn đã bị cấm rút code!")
+        await query.edit_message_text(f"{E['DISLIKE']} <b>Tài khoản của bạn đã bị cấm rút code!</b>", parse_mode="HTML")
         return
 
     balance = db_user[0]
@@ -1397,7 +1397,8 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(
                 f"{E['DISLIKE']} <b>SỐ DƯ KHÔNG ĐỦ!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"Bạn cần <b>{cost:,}đ</b> để mua loại Code này. Số dư hiện tại: <b>{balance:,}đ</b>"
+                f"Bạn cần <b>{cost:,}đ</b> để mua loại Code này. Số dư hiện tại: <b>{balance:,}đ</b>",
+                parse_mode="HTML"
             )
             return
 
@@ -1435,7 +1436,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result = await db_transaction(process_buy_code)
         except Exception as exc:
             logger.exception("Lỗi khi mua code: %s", exc)
-            await query.edit_message_text("❌ Đã xảy ra lỗi trong quá trình xử lý mua code.")
+            await query.edit_message_text(f"{E['CROSS']} Đã xảy ra lỗi trong quá trình xử lý mua code.", parse_mode="HTML")
             return
 
         if result == "OUT_OF_STOCK":
@@ -1445,7 +1446,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
         elif result == "NOT_ENOUGH_BALANCE":
-            await query.edit_message_text(f"{E['DISLIKE']} Số dư không đủ!")
+            await query.edit_message_text(f"{E['DISLIKE']} <b>Số dư không đủ!</b>", parse_mode="HTML")
         else:
             await query.edit_message_text(
                 f"{E['LOVE_FACE']} <b>MUA CODE THÀNH CÔNG!</b>\n"
@@ -1483,12 +1484,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if cmd == "/bo":
             if not args:
-                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/bo USER_ID</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/bo USER_ID</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
             except ValueError:
-                await message.reply_text("❌ USER_ID không hợp lệ.")
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
 
             await db_query("UPDATE users SET skip_ip=1 WHERE user_id=%s", (target_id,), commit=True)
@@ -1496,12 +1497,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "/moip":
             if not args:
-                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/moip USER_ID</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/moip USER_ID</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
             except ValueError:
-                await message.reply_text("❌ USER_ID không hợp lệ.")
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
 
             await db_query("UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1 WHERE user_id=%s", (target_id,), commit=True)
@@ -1509,12 +1510,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "/dl":
             if not args:
-                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/dl USER_ID</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/dl USER_ID</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
             except (ValueError, TypeError):
-                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.")
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
 
             u = await db_query("SELECT user_id, username, balance, referrer_id, is_banned, is_withdraw_banned, joined_at, phone_number, ip_address FROM users WHERE user_id=%s", (target_id,), fetchone=True)
@@ -1578,12 +1579,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "/checkgd":
             if not args:
-                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/checkgd ID_USER</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/checkgd ID_USER</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
             except ValueError:
-                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!")
+                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!", parse_mode="HTML")
                 return
 
             txs = await db_query(
@@ -1609,12 +1610,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         elif cmd == "/checkbb":
             if not args:
-                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/checkbb ID_USER</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/checkbb ID_USER</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
             except ValueError:
-                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!")
+                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!", parse_mode="HTML")
                 return
 
             invited = await db_query(
@@ -1679,7 +1680,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             codes = [c.strip() for c in codes if c.strip()]
             
             if not codes:
-                await message.reply_text("❌ Không tìm thấy mã code hợp lệ.")
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy mã code hợp lệ.", parse_mode="HTML")
                 return
 
             def add_codes(cursor):
@@ -1720,7 +1721,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             codes = [c.strip() for c in codes if c.strip()]
 
             if not codes:
-                await message.reply_text("❌ Không tìm thấy mã code hợp lệ để xóa.")
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy mã code hợp lệ để xóa.", parse_mode="HTML")
                 return
 
             def delete_codes(cursor):
@@ -1861,11 +1862,11 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 target_id = int(args[0])
             except (ValueError, TypeError):
-                await message.reply_text("❌ USER_ID không hợp lệ.")
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
             u = await db_query("SELECT * FROM users WHERE user_id=%s", (target_id,), fetchone=True)
             if not u:
-                await message.reply_text("❌ Không tìm thấy user này.")
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy user này.", parse_mode="HTML")
                 return
             
             invited_count = await get_valid_referrals_count(target_id)
@@ -1925,11 +1926,11 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             target_id = int(args[0])
             amount = int(args[1])
             if amount <= 0:
-                await message.reply_text("❌ Số tiền phải lớn hơn 0.")
+                await message.reply_text(f"{E['CROSS']} Số tiền phải lớn hơn 0.", parse_mode="HTML")
                 return
             exists = await db_query("SELECT user_id FROM users WHERE user_id=%s", (target_id,), fetchone=True)
             if not exists:
-                await message.reply_text("❌ User chưa tồn tại.")
+                await message.reply_text(f"{E['CROSS']} User chưa tồn tại.", parse_mode="HTML")
                 return
             if cmd == "/nap":
                 def add_money(cursor):
@@ -1953,7 +1954,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return True
                 ok = await db_transaction(deduct)
                 if not ok:
-                    await message.reply_text("❌ Số dư user không đủ để trừ.")
+                    await message.reply_text(f"{E['CROSS']} Số dư user không đủ để trừ.", parse_mode="HTML")
                     return
                 await message.reply_text(f"{E['DISLIKE']} Đã trừ <b>-{amount:,}đ</b> của ID <code>{target_id}</code>.", parse_mode="HTML")
         elif cmd == "/baotri":
@@ -1964,7 +1965,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.reply_text(f"{E['DIZZY']} Trạng thái hệ thống: <b>{status_str}</b>", parse_mode="HTML")
     except Exception as exc:
         logger.exception("Lỗi admin command %s: %s", cmd, exc)
-        await message.reply_text("❌ Đã xảy ra lỗi khi xử lý lệnh.")
+        await message.reply_text(f"{E['CROSS']} Đã xảy ra lỗi khi xử lý lệnh.", parse_mode="HTML")
 
 
 # ============================================================
