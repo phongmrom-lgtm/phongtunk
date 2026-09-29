@@ -22,7 +22,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
-    WebAppInfo,  # <--- Đã thêm WebAppInfo
+    WebAppInfo,
 )
 
 from telegram.ext import (
@@ -890,7 +890,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP
+# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP (TỰ ĐỘNG KHÓA TK NẾU TRÙNG IP)
 # ============================================================
 
 async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -916,18 +916,25 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
         if duplicate and user.id not in ADMIN_IDS:
-            await db_query("UPDATE users SET is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
+            # Khóa tài khoản vĩnh viễn (is_banned=1) và cấm rút tiền (is_withdraw_banned=1)
+            await db_query(
+                "UPDATE users SET is_banned=1, is_withdraw_banned=1, ip_address=%s WHERE user_id=%s",
+                (user_ip, user.id),
+                commit=True
+            )
+            user_withdraw_state.pop(user.id, None)
+            
             await message.reply_text(
-                f"{E['PROHIBITED']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+                f"{E['PROHIBITED']} <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
-                f"Tài khoản của bạn đã bị hạn chế tính năng rút tiền!",
+                f"Lý do: Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác (ID: <code>{duplicate[0]}</code>) sử dụng trên hệ thống.\n"
+                f"Hệ thống tự động phát hiện hành vi gian lận/buff ref!",
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardRemove()
             )
             return
 
-        # Cập nhật IP vào database
+        # Cập nhật IP hợp lệ vào database
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
         await message.reply_text(
