@@ -75,7 +75,7 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ CẬP NHẬT THEO 10 ID MỚI)
+# DANH SÁCH CUSTOM PREMIUM EMOJI
 # ============================================================
 E = {
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
@@ -277,13 +277,20 @@ def _init_db_sync():
                 )
                 """
             )
-            cursor.execute(
-                """
-                INSERT INTO settings (key, value)
-                VALUES ('maintenance', '0')
-                ON CONFLICT (key) DO NOTHING
-                """
-            )
+            # Khởi tạo cài đặt mặc định cho các bước xác minh (Mặc định: 1 - Bật)
+            default_settings = [
+                ('maintenance', '0'),
+                ('verify_phone', '1'),
+                ('verify_ip', '1'),
+                ('verify_channel', '1'),
+                ('verify_captcha', '1')
+            ]
+            for key, val in default_settings:
+                cursor.execute(
+                    "INSERT INTO settings (key, value) VALUES (%s, %s) ON CONFLICT (key) DO NOTHING",
+                    (key, val)
+                )
+
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, id DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_withdraw ON transactions(type, status, id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_referrer ON users(referrer_id)")
@@ -325,6 +332,20 @@ async def get_valid_referrals_count(user_id: int) -> int:
         fetchone=True
     )
     return res[0] if res else 0
+
+
+# ============================================================
+# CẤU HÌNH BẬT/TẮT XÁC MINH (SETTING HELPERS)
+# ============================================================
+
+async def get_verify_setting(key: str) -> bool:
+    res = await db_query("SELECT value FROM settings WHERE key=%s", (key,), fetchone=True)
+    return bool(res and res[0] == "1")
+
+
+async def set_verify_setting(key: str, value: bool):
+    val_str = "1" if value else "0"
+    await db_query("UPDATE settings SET value=%s WHERE key=%s", (val_str, key), commit=True)
 
 
 # ============================================================
@@ -689,6 +710,57 @@ async def prompt_ip_verification(message_or_bot, user_id):
 
 
 # ============================================================
+# LUỒNG TIẾP TỤC KIỂM TRA (VERIFICATION FLOW PIPELINE)
+# ============================================================
+
+async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user):
+    """
+    Hàm kiểm tra từng bước theo cấu hình Bật/Tắt của Admin
+    """
+    user_id = user.id
+
+    # 1. Kiểm tra SĐT (Nếu Bật)
+    if await get_verify_setting("verify_phone"):
+        if not await check_phone_verified(user_id) and user_id not in ADMIN_IDS:
+            await prompt_phone_verification(update_or_msg, user_id)
+            return
+
+    # 2. Kiểm tra IP Mini App (Nếu Bật)
+    if await get_verify_setting("verify_ip"):
+        if not await check_ip_verified(user_id) and user_id not in ADMIN_IDS:
+            await prompt_ip_verification(update_or_msg, user_id)
+            return
+
+    # 3. Kiểm tra Tham gia Kênh/Nhóm (Nếu Bật)
+    if await get_verify_setting("verify_channel"):
+        if user_id not in ADMIN_IDS:
+            missing_channels = await get_missing_channels(context.bot, user_id)
+            if missing_channels:
+                buttons = build_channel_buttons(missing_channels)
+                missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
+                msg = (
+                    f"{E['THERMOMETER']} <b>BẠN CHƯA THAM GIA ĐỦ CÁC KÊNH/NHÓM!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
+                    f"{missing_text}\n\n"
+                    f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút <b>XÁC NHẬN ĐÃ THAM GIA</b> bên dưới!"
+                )
+                if hasattr(update_or_msg, "reply_text"):
+                    await update_or_msg.reply_text(msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+                else:
+                    await context.bot.send_message(chat_id=user_id, text=msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
+                return
+
+    # 4. Kiểm tra CAPTCHA (Nếu Bật)
+    if await get_verify_setting("verify_captcha"):
+        await send_captcha_challenge(update_or_msg, context)
+        return
+
+    # Nếu tất cả các bước bật đều đã hoàn tất (hoặc bị tắt)
+    await finalize_user_registration(user, context)
+
+
+# ============================================================
 # START
 # ============================================================
 
@@ -757,40 +829,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
 
-    # 2. Kiểm tra SĐT
-    is_phone_ok = await check_phone_verified(user.id)
-    if not is_phone_ok and user.id not in ADMIN_IDS:
-        await prompt_phone_verification(update.message, user.id)
-        return
-
-    # 3. Kiểm tra IP Mini App
-    is_ip_ok = await check_ip_verified(user.id)
-    if not is_ip_ok and user.id not in ADMIN_IDS:
-        await prompt_ip_verification(update.message, user.id)
-        return
-
-    # 4. Kiểm tra Kênh/Nhóm
-    missing_channels = await get_missing_channels(context.bot, user.id)
-    if missing_channels and user.id not in ADMIN_IDS:
-        buttons = build_channel_buttons(missing_channels)
-        missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
-        await update.message.reply_text(
-            f"{E['THERMOMETER']} <b>BẠN CHƯA THAM GIA ĐỦ CÁC KÊNH/NHÓM!</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
-            f"{missing_text}\n\n"
-            f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút <b>XÁC NHẬN ĐÃ THAM GIA</b> bên dưới!",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML",
-        )
-        return
-
-    await update.message.reply_text(
-        f"{E['LOVE_FACE']} <b>CHÀO MỪNG BẠN TRỜ LẠI HỆ THỐNG!</b>\n"
-        f"{E['ROCK']} Hãy chọn một tính năng trong menu bên dưới:",
-        reply_markup=get_main_keyboard(),
-        parse_mode="HTML"
-    )
+    # Tiến hành chạy luồng kiểm tra xác minh theo cài đặt
+    await proceed_next_verification(update.message, context, user)
 
 
 # ============================================================
@@ -822,8 +862,9 @@ async def send_captcha_challenge(update_or_query, context: ContextTypes.DEFAULT_
             parse_mode="HTML",
         )
     else:
+        target_id = update_or_query.from_user.id if hasattr(update_or_query, "from_user") else update_or_query.chat.id
         await context.bot.send_message(
-            chat_id=update_or_query.from_user.id,
+            chat_id=target_id,
             text=caption,
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode="HTML",
@@ -850,22 +891,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         return
 
-    if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
-        try:
-            await query.delete_message()
-        except Exception:
-            pass
-        await prompt_phone_verification(context.bot, user.id)
-        return
-
-    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
-        try:
-            await query.delete_message()
-        except Exception:
-            pass
-        await prompt_ip_verification(context.bot, user.id)
-        return
-
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels:
         buttons = build_channel_buttons(missing_channels)
@@ -883,7 +908,16 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
         return
-    await send_captcha_challenge(query, context)
+
+    # Chuyển tiếp luồng xác minh tiếp theo (Captcha hoặc Hoàn tất)
+    if await get_verify_setting("verify_captcha"):
+        await send_captcha_challenge(query, context)
+    else:
+        try:
+            await query.delete_message()
+        except Exception:
+            pass
+        await finalize_user_registration(user, context)
 
 
 # ============================================================
@@ -966,26 +1000,8 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    # Kiểm tra bước kế tiếp: IP Verification
-    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
-        await prompt_ip_verification(message, user.id)
-    else:
-        # Chuyển sang bước Check Kênh
-        missing_channels = await get_missing_channels(context.bot, user.id)
-        if missing_channels and user.id not in ADMIN_IDS:
-            buttons = build_channel_buttons(missing_channels)
-            missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
-            await message.reply_text(
-                f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
-                f"{missing_text}\n\n"
-                f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode="HTML",
-            )
-        else:
-            await send_captcha_challenge(message, context)
+    # Tiếp tục luồng xác minh tiếp theo
+    await proceed_next_verification(message, context, user)
 
 
 # ============================================================
@@ -1036,28 +1052,14 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
         await message.reply_text(
-            f"{E['CHECK']} Xác minh số điện thoại thành công!\n\n"
+            f"{E['CHECK']} Xác minh IP thành công!\n\n"
             f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
 
-        # Chuyển tiếp sang bước Check Kênh
-        missing_channels = await get_missing_channels(context.bot, user.id)
-        if missing_channels and user.id not in ADMIN_IDS:
-            buttons = build_channel_buttons(missing_channels)
-            missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
-            await message.reply_text(
-                f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
-                f"{missing_text}\n\n"
-                f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode="HTML",
-            )
-        else:
-            await send_captcha_challenge(message, context)
+        # Chuyển tiếp luồng xác minh tiếp theo
+        await proceed_next_verification(message, context, user)
 
     except Exception as exc:
         logger.exception("Lỗi khi xử lý dữ liệu từ MiniApp: %s", exc)
@@ -1198,29 +1200,35 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
-        await prompt_phone_verification(message, user.id)
-        return
-
-    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
-        await prompt_ip_verification(message, user.id)
-        return
-
-    if user.id not in ADMIN_IDS:
-        missing_channels = await get_missing_channels(context.bot, user.id)
-        if missing_channels:
-            buttons = build_channel_buttons(missing_channels)
-            missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
-            await message.reply_text(
-                f"{E['THERMOMETER']} <b>BẠN CHƯA THAM GIA ĐỦ CÁC KÊNH/NHÓM!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
-                f"{missing_text}\n\n"
-                f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới để tiếp tục!",
-                reply_markup=InlineKeyboardMarkup(buttons),
-                parse_mode="HTML"
-            )
+    # Kiểm tra SĐT nếu Bật
+    if await get_verify_setting("verify_phone"):
+        if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
+            await prompt_phone_verification(message, user.id)
             return
+
+    # Kiểm tra IP nếu Bật
+    if await get_verify_setting("verify_ip"):
+        if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
+            await prompt_ip_verification(message, user.id)
+            return
+
+    # Kiểm tra Kênh/Nhóm nếu Bật
+    if await get_verify_setting("verify_channel"):
+        if user.id not in ADMIN_IDS:
+            missing_channels = await get_missing_channels(context.bot, user.id)
+            if missing_channels:
+                buttons = build_channel_buttons(missing_channels)
+                missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
+                await message.reply_text(
+                    f"{E['THERMOMETER']} <b>BẠN CHƯA THAM GIA ĐỦ CÁC KÊNH/NHÓM!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
+                    f"{missing_text}\n\n"
+                    f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới để tiếp tục!",
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode="HTML"
+                )
+                return
 
     text = (message.text or "").strip()
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
@@ -1266,7 +1274,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<code>{ref_link}</code>\n\n"
             f"{E['BANDAGE']} <b>Thể lệ nhận thưởng:</b>\n"
             f"• {E['LIKE']} Nhận ngay: <b>+{REFERRAL_REWARD:,}đ</b> / lượt mời thành công.\n"
-            f"• {E['POINT_RIGHT']} Bạn bè phải xác minh SĐT, IP, tham gia đủ kênh & giải CAPTCHA.\n"
+            f"• {E['POINT_RIGHT']} Bạn bè phải hoàn tất các bước xác minh theo yêu cầu hệ thống.\n"
             f"• {E['ROCK']} Min rút tối thiểu: <b>{MIN_WITHDRAW:,}đ</b>\n"
             f"• {E['SHIELD']} Rút tối đa: <b>{MAX_WITHDRAW:,}đ</b>"
         )
@@ -1465,12 +1473,93 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# ADMIN COMMANDS
+# ADMIN PANEL COMMAND /menu & TOGGLE CALLBACKS
 # ============================================================
 
 def is_admin(update: Update):
     return bool(update.effective_user and update.effective_user.id in ADMIN_IDS)
 
+
+async def build_admin_menu():
+    st_phone = await get_verify_setting("verify_phone")
+    st_ip = await get_verify_setting("verify_ip")
+    st_channel = await get_verify_setting("verify_channel")
+    st_captcha = await get_verify_setting("verify_captcha")
+
+    btn_phone = InlineKeyboardButton(
+        f"📱 Xác minh SĐT: {'🟢 BẬT' if st_phone else '🔴 TẮT'}",
+        callback_data="toggle_verify_phone"
+    )
+    btn_ip = InlineKeyboardButton(
+        f"🌐 Xác minh IP Mini App: {'🟢 BẬT' if st_ip else '🔴 TẮT'}",
+        callback_data="toggle_verify_ip"
+    )
+    btn_channel = InlineKeyboardButton(
+        f"📢 Check Kênh/Nhóm: {'🟢 BẬT' if st_channel else '🔴 TẮT'}",
+        callback_data="toggle_verify_channel"
+    )
+    btn_captcha = InlineKeyboardButton(
+        f"🧩 Check CAPTCHA: {'🟢 BẬT' if st_captcha else '🔴 TẮT'}",
+        callback_data="toggle_verify_captcha"
+    )
+
+    buttons = [
+        [btn_phone],
+        [btn_ip],
+        [btn_channel],
+        [btn_captcha]
+    ]
+
+    text = (
+        f"⚙️ <b>BẢNG ĐIỀU KHIỂN CẤU HÌNH XÁC MINH BOT</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Nhấn vào từng nút bấm bên dưới để Bật hoặc Tắt bước kiểm tra tương ứng với thành viên mới:</i>"
+    )
+    return text, InlineKeyboardMarkup(buttons)
+
+
+async def admin_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    text, reply_markup = await build_admin_menu()
+    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="HTML")
+
+
+async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query or not is_admin(update):
+        return
+
+    data = query.data or ""
+    key_map = {
+        "toggle_verify_phone": "verify_phone",
+        "toggle_verify_ip": "verify_ip",
+        "toggle_verify_channel": "verify_channel",
+        "toggle_verify_captcha": "verify_captcha",
+    }
+
+    if data in key_map:
+        setting_key = key_map[data]
+        curr_val = await get_verify_setting(setting_key)
+        new_val = not curr_val
+        await set_verify_setting(setting_key, new_val)
+
+        status_text = "🟢 BẬT" if new_val else "🔴 TẮT"
+        try:
+            await query.answer(f"Đã chuyển trạng thái sang {status_text}")
+        except Exception:
+            pass
+
+        text, reply_markup = await build_admin_menu()
+        try:
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode="HTML")
+        except Exception:
+            pass
+
+
+# ============================================================
+# ADMIN COMMANDS KHÁC
+# ============================================================
 
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
@@ -2000,7 +2089,10 @@ def main():
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("menu", admin_menu_command))
+    
     app.add_handler(ChatMemberHandler(chat_member_updated_handler, ChatMemberHandler.CHAT_MEMBER))
+    app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^toggle_verify_"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
