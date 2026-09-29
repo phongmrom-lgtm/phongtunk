@@ -75,65 +75,88 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI
+# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ THAY THẾ TOÀN BỘ ID MỚI)
 # ============================================================
 E = {
-    "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "EXCHANGE": '<tg-emoji emoji-id="5402186569006210455">💱</tg-emoji>',
-    "MONEY": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "MONEY2": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "CHART_DOWN": '<tg-emoji emoji-id="5429518319243775957">📉</tg-emoji>',
-    "CHART_UP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
-    "POINT_RIGHT": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
+    "WAVE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
+    "SMILE": '<tg-emoji emoji-id="5238185738184435219">🙂</tg-emoji>',
+    "LOVE_FACE": '<tg-emoji emoji-id="5197387964098813812">🥰</tg-emoji>',
+    "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️</tg-emoji>',
+    "CAR_RED": '<tg-emoji emoji-id="5240037474679398914">🚘</tg-emoji>',
+    "BANANA": '<tg-emoji emoji-id="5242466828441099349">🍌</tg-emoji>',
+    "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
+    "CARD": '<tg-emoji emoji-id="5240066289614987080">💳</tg-emoji>',
+    "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "COMET": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "BAG": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "BAG2": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "PROHIBITED": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "NO_ENTRY": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "TOP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
-    "CROWN": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "PLUS": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "DOWN": '<tg-emoji emoji-id="5429518319243775957">📉</tg-emoji>',
-    "GOLD": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "SILVER": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "BRONZE": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "SHIELD": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "LINK": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "SEARCH": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "EYES": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "ALARM": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "CALENDAR": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "HOURGLASS": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "DROP": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "SNOW": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "GIFT": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "COIN": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "EXCHANGE2": '<tg-emoji emoji-id="5402186569006210455">💱</tg-emoji>',
-    "CART": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "LINK2": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "PIG": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
-    "SCALE": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "MAIL": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "PHONE": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "LIKE": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "DISLIKE": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "WARN": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "CROSS": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "ROCK": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "LOVE_FACE": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
-    "WAVE": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
-    "BANDAGE": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "DIZZY": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "THERMOMETER": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
-    "HANDSHAKE": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
-    "SWORD": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
-    "POOP": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
-    "UP": '<tg-emoji emoji-id="5429651785352501917">↗️</tg-emoji>',
-    "CANDLE": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
     "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "CROSS": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
+    "CANDLE": '<tg-emoji emoji-id="5451882707875276247">🕯</tg-emoji>',
+    "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "MONEY_FLY": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
+    "MONEY_BAG": '<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>',
+    "RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "FIRE": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
+    "BOOM": '<tg-emoji emoji-id="5276032951342088188">💥</tg-emoji>',
+    "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
+    "PIN": '<tg-emoji emoji-id="5391032818111363540">📍</tg-emoji>',
+    "SOON": '<tg-emoji emoji-id="5440621591387980068">🔜</tg-emoji>',
+    "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
+    "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️</tg-emoji>',
+    "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
+    "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
+    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
+    "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
+    "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
+    "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️</tg-emoji>',
+    "DROP": '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>',
+    "SNOW": '<tg-emoji emoji-id="5449449325434266744">❄️</tg-emoji>',
+    "BULB": '<tg-emoji emoji-id="5422439311196834318">💡</tg-emoji>',
+    "ALARM": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
+    "PARTY": '<tg-emoji emoji-id="5461151367559141950">🎉</tg-emoji>',
+    "HOME": '<tg-emoji emoji-id="5416041192905265756">🏠</tg-emoji>',
+    "GIFT": '<tg-emoji emoji-id="5442939099906325301">🎁</tg-emoji>',
+    "BELL": '<tg-emoji emoji-id="5440833702642857683">🔔</tg-emoji>',
+    "LINK": '<tg-emoji emoji-id="5440410042773824003">🔗</tg-emoji>',
+    "OUTBOX": '<tg-emoji emoji-id="5445355530111437729">📤</tg-emoji>',
+    "INBOX": '<tg-emoji emoji-id="5443127283898405358">📥</tg-emoji>',
+    "BAG": '<tg-emoji emoji-id="5294167145079395967">🛍</tg-emoji>',
+    "BANK": '<tg-emoji emoji-id="5332455502917949981">🏦</tg-emoji>',
+    "SHIELD": '<tg-emoji emoji-id="5197288647275071607">🛡</tg-emoji>',
+    "MONEY": '<tg-emoji emoji-id="5278467510604160626">💰</tg-emoji>',
+    "HEART": '<tg-emoji emoji-id="5267102644886853973">❤️</tg-emoji>',
+    "COIN": '<tg-emoji emoji-id="5264713049637409446">🪙</tg-emoji>',
+    "CAR": '<tg-emoji emoji-id="5282927142651319521">🚗</tg-emoji>',
+    "LAB": '<tg-emoji emoji-id="5390919199046521002">🧪</tg-emoji>',
+    "UNLOCK": '<tg-emoji emoji-id="5465443379917629504">🔓</tg-emoji>',
+    "LIKE": '<tg-emoji emoji-id="5465465194056525619">👍</tg-emoji>',
+    "LAUGH": '<tg-emoji emoji-id="5463121572137022242">😂</tg-emoji>',
+    "BANDAGE": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
+    "OK": '<tg-emoji emoji-id="5463423955014529788">👌</tg-emoji>',
+    "QUESTION": '<tg-emoji emoji-id="5463139580934892960">❓</tg-emoji>',
+    "MUTE": '<tg-emoji emoji-id="5462990730253319917">🔇</tg-emoji>',
+    "DESKTOP": '<tg-emoji emoji-id="5375099322666859339">🖥</tg-emoji>',
+    "WARN": '<tg-emoji emoji-id="5373059848856421989">❗️</tg-emoji>',
+    "EXCLAMATION_QUESTION": '<tg-emoji emoji-id="5226618356169194833">⁉️</tg-emoji>',
+    "DEVIL": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
+    # Ánh xạ các icon phụ trợ
+    "DISLIKE": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
+    "DIZZY": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
+    "THERMOMETER": '<tg-emoji emoji-id="5373059848856421989">❗️</tg-emoji>',
+    "ROCK": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
+    "PHONE": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
+    "HANDSHAKE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
+    "CHART_UP": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "CHART_DOWN": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "UP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "PROHIBITED": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
+    "NO_ENTRY": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
+    "SWORD": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
+    "POOP": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
 }
 
 
@@ -277,13 +300,15 @@ def _init_db_sync():
                 )
                 """
             )
-            # Khởi tạo cài đặt mặc định cho các bước xác minh (Mặc định: 1 - Bật)
+            # Khởi tạo cài đặt mặc định cho các bước xác minh & tính năng bảo mật (Mặc định: 1 - Bật)
             default_settings = [
                 ('maintenance', '0'),
                 ('verify_phone', '1'),
                 ('verify_ip', '1'),
                 ('verify_channel', '1'),
-                ('verify_captcha', '1')
+                ('verify_captcha', '1'),
+                ('auto_lock_leave', '1'),  # Bật/tắt tính năng khóa rút tiền khi người mời rời nhóm
+                ('allow_withdraw', '1')      # Bật/tắt tính năng rút tiền toàn hệ thống
             ]
             for key, val in default_settings:
                 cursor.execute(
@@ -335,7 +360,7 @@ async def get_valid_referrals_count(user_id: int) -> int:
 
 
 # ============================================================
-# CẤU HÌNH BẬT/TẮT XÁC MINH (SETTING HELPERS)
+# CẤU HÌNH BẬT/TẮT XÁC MINH & TÍNH NĂNG (SETTING HELPERS)
 # ============================================================
 
 async def get_verify_setting(key: str) -> bool:
@@ -476,6 +501,11 @@ async def chat_member_updated_handler(update: Update, context: ContextTypes.DEFA
     result = update.chat_member or update.my_chat_member
     if not result:
         return
+    
+    # Kiểm tra xem tính năng tự động khóa khi rời nhóm có bật không
+    if not await get_verify_setting("auto_lock_leave"):
+        return
+
     old_state = result.old_chat_member.status
     new_state = result.new_chat_member.status
     user = result.new_chat_member.user
@@ -651,13 +681,13 @@ async def ensure_user_exists(update: Update):
 
 async def prompt_phone_verification(message_or_bot, user_id):
     msg = (
-        "🔒 <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
-        "⚠️ <b>Yêu cầu tài khoản hợp lệ:</b>\n"
-        "✔️ Số điện thoại Việt Nam (+84)\n"
-        "✔️ Tên hiển thị không quá 20 ký tự\n"
-        "✔️ Có username (@)\n"
-        "✔️ Có ảnh đại diện\n"
-        "➡️ <b>Nhấn nút bên dưới để chia sẻ số điện thoại:</b>"
+        f"{E['LOCK']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
+        f"{E['WARN']} <b>Yêu cầu tài khoản hợp lệ:</b>\n"
+        f"{E['CHECK']} Số điện thoại Việt Nam (+84)\n"
+        f"{E['CHECK']} Tên hiển thị không quá 20 ký tự\n"
+        f"{E['CHECK']} Có username (@)\n"
+        f"{E['CHECK']} Có ảnh đại diện\n"
+        f"{E['POINT_RIGHT']} <b>Nhấn nút bên dưới để chia sẻ số điện thoại:</b>"
     )
     
     if hasattr(message_or_bot, "reply_text"):
@@ -714,9 +744,6 @@ async def prompt_ip_verification(message_or_bot, user_id):
 # ============================================================
 
 async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user):
-    """
-    Hàm kiểm tra từng bước theo cấu hình Bật/Tắt của Admin
-    """
     user_id = user.id
 
     # 1. Kiểm tra SĐT (Nếu Bật)
@@ -756,7 +783,6 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
         await send_captcha_challenge(update_or_msg, context)
         return
 
-    # Nếu tất cả các bước bật đều đã hoàn tất (hoặc bị tắt)
     await finalize_user_registration(user, context)
 
 
@@ -792,7 +818,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fetchone=True,
     )
 
-    # 🛑 1. KIỂM TRA NGAY TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN CHƯA
     if db_user and db_user[1] == 1:
         user_ip = db_user[4] if (len(db_user) > 4 and db_user[4]) else "Không xác định"
         await update.message.reply_text(
@@ -829,7 +854,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
 
-    # Tiến hành chạy luồng kiểm tra xác minh theo cài đặt
     await proceed_next_verification(update.message, context, user)
 
 
@@ -909,7 +933,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         return
 
-    # Chuyển tiếp luồng xác minh tiếp theo (Captcha hoặc Hoàn tất)
     if await get_verify_setting("verify_captcha"):
         await send_captcha_challenge(query, context)
     else:
@@ -941,7 +964,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     phone = contact.phone_number or ""
     
-    # 1. Kiểm tra SĐT Việt Nam (+84)
     if not (phone.startswith("84") or phone.startswith("+84")):
         await message.reply_text(
             f"{E['CROSS']} <b>Yêu cầu bị từ chối!</b>\n"
@@ -951,7 +973,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 2. Tên hiển thị không quá 20 ký tự
     full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
     if len(full_name) > 20:
         await message.reply_text(
@@ -963,7 +984,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 3. Có username (@)
     if not user.username:
         await message.reply_text(
             f"{E['CROSS']} <b>Chưa thiết lập Username!</b>\n"
@@ -974,7 +994,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 4. Có ảnh đại diện
     try:
         user_photos = await context.bot.get_user_profile_photos(user.id, limit=1)
         if user_photos.total_count == 0:
@@ -989,10 +1008,8 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as exc:
         logger.warning(f"Lỗi kiểm tra avatar user {user.id}: {exc}")
 
-    # Đã hợp lệ tất cả tiêu chí
     await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
 
-    # Hiển thị thông báo chuyển bước
     await message.reply_text(
         f"{E['CHECK']} Xác minh số điện thoại thành công!\n\n"
         f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
@@ -1000,7 +1017,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove()
     )
 
-    # Tiếp tục luồng xác minh tiếp theo
     await proceed_next_verification(message, context, user)
 
 
@@ -1023,7 +1039,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
             return
 
-        # Kiểm tra trùng IP (Chống Clone)
         duplicate = await db_query(
             "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s AND skip_ip=0",
             (user_ip, user.id),
@@ -1048,7 +1063,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             return
 
-        # Cập nhật IP hợp lệ vào database
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
         await message.reply_text(
@@ -1058,7 +1072,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             reply_markup=ReplyKeyboardRemove()
         )
 
-        # Chuyển tiếp luồng xác minh tiếp theo
         await proceed_next_verification(message, context, user)
 
     except Exception as exc:
@@ -1200,19 +1213,16 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Kiểm tra SĐT nếu Bật
     if await get_verify_setting("verify_phone"):
         if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
             await prompt_phone_verification(message, user.id)
             return
 
-    # Kiểm tra IP nếu Bật
     if await get_verify_setting("verify_ip"):
         if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
             await prompt_ip_verification(message, user.id)
             return
 
-    # Kiểm tra Kênh/Nhóm nếu Bật
     if await get_verify_setting("verify_channel"):
         if user.id not in ADMIN_IDS:
             missing_channels = await get_missing_channels(context.bot, user.id)
@@ -1329,6 +1339,11 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await message.reply_text(msg, parse_mode="HTML")
     elif text in ["Rút Code", "💳 Rút Code", "Rút Tiền", "💳 Rút Tiền"]:
+        # Kiểm tra tính năng rút tiền toàn hệ thống có bật không
+        if not await get_verify_setting("allow_withdraw") and user.id not in ADMIN_IDS:
+            await message.reply_text(f"{E['DISLIKE']} <b>Tính năng rút tiền hiện đang TẮT bởi Quản trị viên!</b>", parse_mode="HTML")
+            return
+
         if db_user[4] == 1:
             await message.reply_text(f"{E['DISLIKE']} <b>Tài khoản của bạn đã bị CẤM RÚT CODE!</b>", parse_mode="HTML")
             return
@@ -1359,6 +1374,10 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
     except Exception:
         pass
+
+    if not await get_verify_setting("allow_withdraw") and user.id not in ADMIN_IDS:
+        await query.edit_message_text(f"{E['DISLIKE']} <b>Tính năng rút tiền đang bị khóa bởi Hệ thống!</b>", parse_mode="HTML")
+        return
 
     db_user = await db_query(
         "SELECT balance, is_banned, is_withdraw_banned FROM users WHERE user_id=%s",
@@ -1485,6 +1504,8 @@ async def build_admin_menu():
     st_ip = await get_verify_setting("verify_ip")
     st_channel = await get_verify_setting("verify_channel")
     st_captcha = await get_verify_setting("verify_captcha")
+    st_auto_lock = await get_verify_setting("auto_lock_leave")
+    st_withdraw = await get_verify_setting("allow_withdraw")
 
     btn_phone = InlineKeyboardButton(
         f"📱 Xác minh SĐT: {'🟢 BẬT' if st_phone else '🔴 TẮT'}",
@@ -1502,18 +1523,28 @@ async def build_admin_menu():
         f"🧩 Check CAPTCHA: {'🟢 BẬT' if st_captcha else '🔴 TẮT'}",
         callback_data="toggle_verify_captcha"
     )
+    btn_auto_lock = InlineKeyboardButton(
+        f"🔒 Khóa rút khi bạn rời nhóm: {'🟢 BẬT' if st_auto_lock else '🔴 TẮT'}",
+        callback_data="toggle_auto_lock_leave"
+    )
+    btn_withdraw = InlineKeyboardButton(
+        f"💳 Tính năng Rút Tiền: {'🟢 BẬT' if st_withdraw else '🔴 TẮT'}",
+        callback_data="toggle_allow_withdraw"
+    )
 
     buttons = [
         [btn_phone],
         [btn_ip],
         [btn_channel],
-        [btn_captcha]
+        [btn_captcha],
+        [btn_auto_lock],
+        [btn_withdraw]
     ]
 
     text = (
-        f"⚙️ <b>BẢNG ĐIỀU KHIỂN CẤU HÌNH XÁC MINH BOT</b>\n"
+        f"{E['GEAR']} <b>BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Nhấn vào từng nút bấm bên dưới để Bật hoặc Tắt bước kiểm tra tương ứng với thành viên mới:</i>"
+        f"<i>Nhấn vào từng nút bấm bên dưới để Bật/Tắt cấu hình xác minh & tính năng tương ứng:</i>"
     )
     return text, InlineKeyboardMarkup(buttons)
 
@@ -1536,6 +1567,8 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_verify_ip": "verify_ip",
         "toggle_verify_channel": "verify_channel",
         "toggle_verify_captcha": "verify_captcha",
+        "toggle_auto_lock_leave": "auto_lock_leave",
+        "toggle_allow_withdraw": "allow_withdraw",
     }
 
     if data in key_map:
@@ -2092,12 +2125,11 @@ def main():
     app.add_handler(CommandHandler("menu", admin_menu_command))
     
     app.add_handler(ChatMemberHandler(chat_member_updated_handler, ChatMemberHandler.CHAT_MEMBER))
-    app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^toggle_verify_"))
+    app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^toggle_"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     
-    # Handlers xác minh SĐT và IP qua Mini App
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
 
