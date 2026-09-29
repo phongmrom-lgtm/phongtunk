@@ -75,46 +75,63 @@ REFERRAL_REWARD = 1000
 
 
 # ============================================================
-# DANH SÁCH PREMIUM EMOJI
+# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ ĐỔI THEO ID CỦA BẠN)
 # ============================================================
 E = {
-    "LIKE": '<tg-emoji emoji-id="5465465194056525619">👍</tg-emoji>',
-    "LOVE_FACE": '<tg-emoji emoji-id="5465262274031659421">🥰</tg-emoji>',
-    "WAVE": '<tg-emoji emoji-id="5462910521739063094">👋</tg-emoji>',
-    "DISLIKE": '<tg-emoji emoji-id="5465225015190367274">👎</tg-emoji>',
-    "LAUGH": '<tg-emoji emoji-id="5463121572137022242">😂</tg-emoji>',
-    "ROCK": '<tg-emoji emoji-id="5463412289883353404">🤟</tg-emoji>',
-    "SLEEP": '<tg-emoji emoji-id="5462990652943904884">😴</tg-emoji>',
-    "POOP": '<tg-emoji emoji-id="5465198330558557107">💩</tg-emoji>',
-    "HANDSHAKE": '<tg-emoji emoji-id="5463256910851546817">🤝</tg-emoji>',
-    "SWORD": '<tg-emoji emoji-id="5463277406435422003">🗡</tg-emoji>',
-    "SHIELD": '<tg-emoji emoji-id="5465154440287757794">🛡</tg-emoji>',
-    "THERMOMETER": '<tg-emoji emoji-id="5463054218459884779">🌡</tg-emoji>',
-    "DIZZY": '<tg-emoji emoji-id="5463274047771000031">😵</tg-emoji>',
-    "POINT_RIGHT": '<tg-emoji emoji-id="5463392464314315076">👉</tg-emoji>',
-    "BANDAGE": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
+    "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "PROHIBITED": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
+    "NO_ENTRY": '<tg-emoji emoji-id="5260293700088511294">⛔️</tg-emoji>',
+    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "BAG": '<tg-emoji emoji-id="5229064374403998351">🛍</tg-emoji>',
+    "CHART_DOWN": '<tg-emoji emoji-id="5246762912428603768">📉</tg-emoji>',
+    "CHART_UP": '<tg-emoji emoji-id="5244837092042750681">📈</tg-emoji>',
+    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
     "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
     "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
     "PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
-    "TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
-    "MONEY": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
-    "CROSS": '<tg-emoji emoji-id="5278751923338490157">❌</tg-emoji>',
-    "CHART": '<tg-emoji emoji-id="5290017777174722330">📊</tg-emoji>',
-    "CHECK": '<tg-emoji emoji-id="5210952531676504517">✔️</tg-emoji>',
-    "LIGHTNING": '<tg-emoji emoji-id="5231200819986047254">⚡️</tg-emoji>',
-    "COMET": '<tg-emoji emoji-id="5206607081334906820">☄️</tg-emoji>',
-    "BAG": '<tg-emoji emoji-id="5456140674028019486">🛍</tg-emoji>',
-    "PROHIBITED": '<tg-emoji emoji-id="5224607267797606837">🚫</tg-emoji>',
-    "NO_ENTRY": '<tg-emoji emoji-id="5229064374403998351">⛔️</tg-emoji>',
-    "EXCLAMATION": '<tg-emoji emoji-id="5240241223632954241">❗️</tg-emoji>',
-    "EYES": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
-    "PHONE": '<tg-emoji emoji-id="5465465194056525619">📱</tg-emoji>',
-    "WARN": '<tg-emoji emoji-id="5463054218459884779">🌡</tg-emoji>',
-    "UP": '<tg-emoji emoji-id="5449683594425410231">🔼</tg-emoji>',
-    "DOWN": '<tg-emoji emoji-id="5447183459602669338">🔽</tg-emoji>',
-    "CANDLE": '<tg-emoji emoji-id="5451882707875276247">🕯</tg-emoji>',
-    "CHART_UP": '<tg-emoji emoji-id="5244837092042750681">📈</tg-emoji>',
-    "CHART_DOWN": '<tg-emoji emoji-id="5246762912428603768">📉</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️</tg-emoji>',
+    "BAG2": '<tg-emoji emoji-id="5406683434124859552">🛍</tg-emoji>',
+    "GOLD": '<tg-emoji emoji-id="5440539497383087970">🥇</tg-emoji>',
+    "SILVER": '<tg-emoji emoji-id="5447203607294265305">🥈</tg-emoji>',
+    "BRONZE": '<tg-emoji emoji-id="5453902265922376865">🥉</tg-emoji>',
+    "SHIELD": '<tg-emoji emoji-id="5251203410396458957">🛡</tg-emoji>',
+    "LINK": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
+    "SEARCH": '<tg-emoji emoji-id="5231012545799666522">🔍</tg-emoji>',
+    "MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
+    "MONEY2": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
+    "EXCHANGE": '<tg-emoji emoji-id="5402186569006210455">💱</tg-emoji>',
+    "EYES": '<tg-emoji emoji-id="5210956306952758910">👀</tg-emoji>',
+    "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
+    "ALARM": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
+    "CALENDAR": '<tg-emoji emoji-id="5413879192267805083">🗓</tg-emoji>',
+    "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
+    "DROP": '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>',
+    "SNOW": '<tg-emoji emoji-id="5449449325434266744">❄️</tg-emoji>',
+    "GIFT": '<tg-emoji emoji-id="5442939099906325301">🎁</tg-emoji>',
+    "COIN": '<tg-emoji emoji-id="5382164415019768638">🪙</tg-emoji>',
+    "EXCHANGE2": '<tg-emoji emoji-id="5377336227533969892">💱</tg-emoji>',
+    "CART": '<tg-emoji emoji-id="5440841102871517055">🛒</tg-emoji>',
+    "LINK2": '<tg-emoji emoji-id="5440410042773824003">🔗</tg-emoji>',
+    "PIG": '<tg-emoji emoji-id="5417831807720642261">🐷</tg-emoji>',
+    "SCALE": '<tg-emoji emoji-id="5461152608804689572">⚖️</tg-emoji>',
+    "MAIL": '<tg-emoji emoji-id="5472239203590888751">📩</tg-emoji>',
+    "PHONE": '<tg-emoji emoji-id="5213179235996294999">📞</tg-emoji>',
+    "LIKE": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "DISLIKE": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
+    "WARN": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
+    "CROSS": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
+    "ROCK": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
+    "LOVE_FACE": '<tg-emoji emoji-id="5442939099906325301">🎁</tg-emoji>',
+    "WAVE": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "BANDAGE": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
+    "DIZZY": '<tg-emoji emoji-id="5395695537687123235">🚨</tg-emoji>',
+    "THERMOMETER": '<tg-emoji emoji-id="5260293700088511294">👀</tg-emoji>',
+    "HANDSHAKE": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
+    "SWORD": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "POOP": '<tg-emoji emoji-id="5240241223632954241">🚫</tg-emoji>',
+    "UP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "CANDLE": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
     "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
 }
 
@@ -217,8 +234,9 @@ def _init_db_sync():
                 )
                 """
             )
-            # Tự động thêm cột ip_address để lưu IP Mini App
+            # Tự động thêm cột ip_address và skip_ip
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS skip_ip INTEGER DEFAULT 0;")
 
             cursor.execute(
                 """
@@ -301,7 +319,6 @@ def get_now_str():
 
 
 async def get_valid_referrals_count(user_id: int) -> int:
-    """Đếm chính xác số người đã mời thành công VÀ ĐÃ ĐƯỢC CỘNG TIỀN THƯỞNG"""
     res = await db_query(
         "SELECT COUNT(*) FROM transactions WHERE user_id=%s AND type='Thưởng Mời Bạn' AND status='Thành công'",
         (user_id,),
@@ -334,7 +351,7 @@ def get_main_keyboard():
 
 def get_contact_keyboard():
     keyboard = [
-        [KeyboardButton("📱 XÁC MINH SỐ ĐIỆN THOẠI", request_contact=True)]
+        [KeyboardButton("📱 Chia sẻ số điện thoại", request_contact=True)]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
@@ -582,7 +599,7 @@ async def ensure_user_exists(update: Update):
     if not user:
         return None
     row = await db_query(
-        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
+        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
         (user.id,),
         fetchone=True,
     )
@@ -600,7 +617,7 @@ async def ensure_user_exists(update: Update):
             commit=True,
         )
         row = await db_query(
-            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
+            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
             (user.id,),
             fetchone=True,
         )
@@ -611,13 +628,15 @@ async def ensure_user_exists(update: Update):
 # BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI VÀ IP
 # ============================================================
 
-async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
-    msg = (f"{text_prefix}\n\n" if text_prefix else "")
-    msg += (
-        f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI TÀI KHOẢN</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"{E['POINT_RIGHT']} Để chống nick clone/buff ref, hệ thống yêu cầu xác minh SĐT thật.\n"
-        f" Vui lòng nhấn vào nút <b>📱 XÁC MINH SỐ ĐIỆN THOẠI</b> ở bàn phím bên dưới để tiếp tục!"
+async def prompt_phone_verification(message_or_bot, user_id):
+    msg = (
+        "🔒 <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
+        "⚠️ <b>Yêu cầu tài khoản hợp lệ:</b>\n"
+        "✔️ Số điện thoại Việt Nam (+84)\n"
+        "✔️ Tên hiển thị không quá 20 ký tự\n"
+        "✔️ Có username (@)\n"
+        "✔️ Có ảnh đại diện\n"
+        "➡️ <b>Nhấn nút bên dưới để chia sẻ số điện thoại:</b>"
     )
     
     if hasattr(message_or_bot, "reply_text"):
@@ -641,8 +660,13 @@ async def check_phone_verified(user_id) -> bool:
 
 
 async def check_ip_verified(user_id) -> bool:
-    row = await db_query("SELECT ip_address FROM users WHERE user_id=%s", (user_id,), fetchone=True)
-    return bool(row and row[0])
+    row = await db_query("SELECT ip_address, skip_ip FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    if not row:
+        return False
+    ip_addr, skip_ip = row[0], row[1]
+    if skip_ip == 1 or (ip_addr and len(ip_addr.strip()) > 0):
+        return True
+    return False
 
 
 def get_miniapp_keyboard():
@@ -691,16 +715,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     db_user = await db_query(
-        "SELECT user_id, is_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
+        "SELECT user_id, is_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
         (user.id,),
         fetchone=True,
     )
 
-    # 🛑 1. KIỂM TRA NGAY TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN CHƯA (Ưu tiên số 1)
+    # 🛑 1. KIỂM TRA NGAY TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN CHƯA
     if db_user and db_user[1] == 1:
         user_ip = db_user[4] if (len(db_user) > 4 and db_user[4]) else "Không xác định"
         await update.message.reply_text(
-            f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+            f"{E['LIGHTNING']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
             f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
@@ -863,7 +887,7 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # ============================================================
-# XỬ LÝ SHARE CONTACT SỐ ĐIỆN THOẠI
+# XỬ LÝ SHARE CONTACT SỐ ĐIỆN THOẠI VÀ YÊU CẦU ĐIỀU KIỆN
 # ============================================================
 
 async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -881,22 +905,91 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    phone = contact.phone_number
+    phone = contact.phone_number or ""
+    
+    # 1. Kiểm tra SĐT Việt Nam (+84)
+    if not (phone.startswith("84") or phone.startswith("+84")):
+        await message.reply_text(
+            f"{E['CROSS']} <b>Yêu cầu bị từ chối!</b>\n"
+            f"Hệ thống chỉ chấp nhận số điện thoại Việt Nam (+84).",
+            parse_mode="HTML",
+            reply_markup=get_contact_keyboard()
+        )
+        return
+
+    # 2. Tên hiển thị không quá 20 ký tự
+    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+    if len(full_name) > 20:
+        await message.reply_text(
+            f"{E['CROSS']} <b>Tên hiển thị không hợp lệ!</b>\n"
+            f"Tên tài khoản của bạn hiện dài <b>{len(full_name)}</b> ký tự (yêu cầu không quá 20 ký tự).\n"
+            f"Vui lòng đổi lại tên hiển thị ngắn hơn và thử lại!",
+            parse_mode="HTML",
+            reply_markup=get_contact_keyboard()
+        )
+        return
+
+    # 3. Có username (@)
+    if not user.username:
+        await message.reply_text(
+            f"{E['CROSS']} <b>Chưa thiết lập Username!</b>\n"
+            f"Tài khoản của bạn chưa cài đặt username (@username).\n"
+            f"Vui lòng truy cập Cài đặt Telegram -> Tạo Username rồi nhấn xác minh lại!",
+            parse_mode="HTML",
+            reply_markup=get_contact_keyboard()
+        )
+        return
+
+    # 4. Có ảnh đại diện
+    try:
+        user_photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+        if user_photos.total_count == 0:
+            await message.reply_text(
+                f"{E['CROSS']} <b>Thiếu ảnh đại diện!</b>\n"
+                f"Tài khoản của bạn cần phải có ảnh đại diện (avatar).\n"
+                f"Vui lòng cập nhật ảnh đại diện cho Telegram rồi thử lại!",
+                parse_mode="HTML",
+                reply_markup=get_contact_keyboard()
+            )
+            return
+    except Exception as exc:
+        logger.warning(f"Lỗi kiểm tra avatar user {user.id}: {exc}")
+
+    # Đã hợp lệ tất cả tiêu chí
     await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
 
-    # Chuyển tiếp ngay sang bước xác minh IP bằng Mini App
+    # Hiển thị thông báo chuyển bước theo yêu cầu
     await message.reply_text(
-        f"{E['CHECK']} <b>Xác minh số điện thoại thành công:</b> <code>{phone}</code>\n\n"
-        f"🌐 <b>BƯỚC TIẾP THEO: XÁC MINH IP</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"Vui lòng nhấn nút <b>🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP</b> bên dưới để tiếp tục!",
+        "✔️ Xác minh số điện thoại thành công!\n\n"
+        "⌛ Đang kiểm tra điều kiện tiếp theo...",
         parse_mode="HTML",
-        reply_markup=get_miniapp_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
+
+    # Kiểm tra bước kế tiếp: IP Verification
+    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
+        await prompt_ip_verification(message, user.id)
+    else:
+        # Chuyển sang bước Check Kênh
+        missing_channels = await get_missing_channels(context.bot, user.id)
+        if missing_channels and user.id not in ADMIN_IDS:
+            buttons = build_channel_buttons(missing_channels)
+            missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
+            await message.reply_text(
+                f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
+                f"{missing_text}\n\n"
+                f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="HTML",
+            )
+        else:
+            await send_captcha_challenge(message, context)
 
 
 # ============================================================
-# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP (KHÓA TÀI KHOẢN VĨNH VIỄN)
+# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP
 # ============================================================
 
 async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -916,13 +1009,12 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
         # Kiểm tra trùng IP (Chống Clone)
         duplicate = await db_query(
-            "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s",
+            "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s AND skip_ip=0",
             (user_ip, user.id),
             fetchone=True
         )
 
         if duplicate and user.id not in ADMIN_IDS:
-            # 🟢 SỬA TẠI ĐÂY: Lưu lại địa chỉ IP đồng thời sét is_banned=1 để chặn vĩnh viễn ngay từ sau này
             await db_query(
                 "UPDATE users SET is_banned=1, is_withdraw_banned=1, ip_address=%s WHERE user_id=%s",
                 (user_ip, user.id),
@@ -931,7 +1023,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             user_withdraw_state.pop(user.id, None)
             
             await message.reply_text(
-                f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+                f"{E['LIGHTNING']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
                 f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
@@ -944,7 +1036,8 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
         await message.reply_text(
-            f"{E['CHECK']} <b>ĐÃ XÁC MINH IP THÀNH CÔNG:</b> <code>{user_ip}</code>",
+            "✔️ Xác minh số điện thoại thành công!\n\n"
+            "⌛ Đang kiểm tra điều kiện tiếp theo...",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
@@ -1065,7 +1158,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=user.id,
         text=(
-            f"{E['LAUGH']} <b>XÁC MINH THÀNH CÔNG!</b>\n"
+            f"{E['LIKE']} <b>XÁC MINH THÀNH CÔNG!</b>\n"
             f"{E['ROCK']} <b>Chào mừng bạn đã gia nhập hệ thống Bot VIP!</b>"
         ),
         reply_markup=get_main_keyboard(),
@@ -1096,7 +1189,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not db_user or db_user[3] == 1:
         ip_val = db_user[7] if (db_user and len(db_user) > 7 and db_user[7]) else "Không xác định"
         await message.reply_text(
-            f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+            f"{E['LIGHTNING']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"Địa chỉ IP <code>{ip_val}</code> đã được tài khoản khác sử dụng.\n"
             f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
@@ -1388,7 +1481,33 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        if cmd == "/dl":
+        if cmd == "/bo":
+            if not args:
+                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/bo USER_ID</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except ValueError:
+                await message.reply_text("❌ USER_ID không hợp lệ.")
+                return
+
+            await db_query("UPDATE users SET skip_ip=1 WHERE user_id=%s", (target_id,), commit=True)
+            await message.reply_text(f"{E['LIKE']} Đã thiết lập bỏ qua bước xác minh IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
+
+        elif cmd == "/moip":
+            if not args:
+                await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/moip USER_ID</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except ValueError:
+                await message.reply_text("❌ USER_ID không hợp lệ.")
+                return
+
+            await db_query("UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1 WHERE user_id=%s", (target_id,), commit=True)
+            await message.reply_text(f"{E['LIKE']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
+
+        elif cmd == "/dl":
             if not args:
                 await message.reply_text(f"{E['EXCLAMATION']} <b>Cú pháp:</b> <code>/dl USER_ID</code>", parse_mode="HTML")
                 return
@@ -1440,7 +1559,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"{E['CANDLE']} <b>KIỂM TRA THÔNG TIN ID:</b> <code>{target_id}</code>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['CHART_UP']} <b>THÔNG TIN ĐỐI TƯỢNG:</b>\n"
+                f"{E['CHART_UP']} <b>THÔNG TIN ĐỐI TƯỜNG:</b>\n"
                 f"{E['UP']} <b>ID:</b> <code>{u[0]}</code>\n"
                 f"{E['PHONE']} <b>SĐT:</b> <code>{u_phone}</code>\n"
                 f"🌐 <b>IP:</b> <code>{u_ip}</code>\n"
@@ -1891,7 +2010,7 @@ def main():
 
     admin_cmds = [
         "code1", "code2", "xoacode1", "xoacode2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
-        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl"
+        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl", "bo", "moip"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
