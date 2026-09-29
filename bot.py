@@ -22,6 +22,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
+    WebAppInfo,  # <--- Đã thêm WebAppInfo
 )
 
 from telegram.ext import (
@@ -42,12 +43,15 @@ from telegram.ext import (
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
+# Đường dẫn Mini App Check IP đã deploy trên GitHub Pages
+MINI_APP_URL = os.getenv("MINI_APP_URL", "https://phongmrom-lgtm.github.io/phongtunk/").strip()
+
 # Danh sách ID Admin
 ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BUỘC kiểm tra tham gia (Đã thêm @conmuamenmenl)
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
 REQUIRED_CHECK_CHANNELS = [
     "@sanhugame",
     "@sancode22",
@@ -213,6 +217,9 @@ def _init_db_sync():
                 )
                 """
             )
+            # Tự động thêm cột ip_address để lưu IP Mini App
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;")
+
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS transactions (
@@ -264,6 +271,7 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_referrer ON users(referrer_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock ON code_stock(type_code, is_used)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_address)")
             
             cursor.execute("""
                 DELETE FROM transactions t1
@@ -376,20 +384,17 @@ def generate_captcha():
 
 
 # ============================================================
-# KIỂM TRA THAM GIA KÊNH (ĐÃ FIX LỖI CHECK KÊNH @conmuamenmenl)
+# KIỂM TRA THAM GIA KÊNH
 # ============================================================
 
 async def get_missing_channels(bot, user_id):
     async def check_one(channel):
         try:
-            # Kiểm tra trạng thái tham gia của user
             member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
             if member.status in ("left", "kicked"):
                 return channel
         except Exception as exc:
-            # Nếu Bot chưa làm Admin hoặc gặp lỗi permission ở kênh này, log warning
             logger.warning(f"Lỗi check kênh {channel} cho user {user_id}: {exc}")
-            # Trả về channel để nhắc nhở người dùng
             return channel
         return None
 
@@ -404,7 +409,6 @@ async def check_channel_membership(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
-    # Dictionary chứa các link tùy chỉnh chuẩn
     CUSTOM_CHANNEL_URLS = {
         "@conmuamenmenl": "https://t.me/conmuamenmenl",
     }
@@ -578,7 +582,7 @@ async def ensure_user_exists(update: Update):
     if not user:
         return None
     row = await db_query(
-        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number FROM users WHERE user_id=%s",
+        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
         (user.id,),
         fetchone=True,
     )
@@ -596,7 +600,7 @@ async def ensure_user_exists(update: Update):
             commit=True,
         )
         row = await db_query(
-            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number FROM users WHERE user_id=%s",
+            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
             (user.id,),
             fetchone=True,
         )
@@ -604,7 +608,7 @@ async def ensure_user_exists(update: Update):
 
 
 # ============================================================
-# BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI
+# BẮT BỘC XÁC MINH SỐ ĐIỆN THOẠI VÀ IP
 # ============================================================
 
 async def prompt_phone_verification(message_or_bot, user_id, text_prefix=""):
@@ -636,6 +640,30 @@ async def check_phone_verified(user_id) -> bool:
     return bool(row and row[0])
 
 
+async def check_ip_verified(user_id) -> bool:
+    row = await db_query("SELECT ip_address FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    return bool(row and row[0])
+
+
+def get_miniapp_keyboard():
+    keyboard = [
+        [KeyboardButton("🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP", web_app=WebAppInfo(url=MINI_APP_URL))]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+
+async def prompt_ip_verification(message_or_bot, user_id):
+    msg = (
+        f"🌐 <b>XÁC MINH IP TÀI KHOẢN (MINI APP)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['POINT_RIGHT']} Vui lòng nhấn vào nút <b>🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP</b> bên dưới để xác minh IP kết nối của bạn!"
+    )
+    if hasattr(message_or_bot, "reply_text"):
+        await message_or_bot.reply_text(msg, reply_markup=get_miniapp_keyboard(), parse_mode="HTML")
+    else:
+        await message_or_bot.send_message(chat_id=user_id, text=msg, reply_markup=get_miniapp_keyboard(), parse_mode="HTML")
+
+
 # ============================================================
 # START
 # ============================================================
@@ -663,7 +691,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     db_user = await db_query(
-        "SELECT user_id, is_banned, referrer_id, phone_number FROM users WHERE user_id=%s",
+        "SELECT user_id, is_banned, referrer_id, phone_number, ip_address FROM users WHERE user_id=%s",
         (user.id,),
         fetchone=True,
     )
@@ -699,11 +727,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
 
+    # 1. Kiểm tra SĐT
     is_phone_ok = await check_phone_verified(user.id)
     if not is_phone_ok and user.id not in ADMIN_IDS:
         await prompt_phone_verification(update.message, user.id)
         return
 
+    # 2. Kiểm tra IP Mini App
+    is_ip_ok = await check_ip_verified(user.id)
+    if not is_ip_ok and user.id not in ADMIN_IDS:
+        await prompt_ip_verification(update.message, user.id)
+        return
+
+    # 3. Kiểm tra Kênh/Nhóm
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels and user.id not in ADMIN_IDS:
         buttons = build_channel_buttons(missing_channels)
@@ -792,6 +828,14 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await prompt_phone_verification(context.bot, user.id)
         return
 
+    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
+        try:
+            await query.delete_message()
+        except Exception:
+            pass
+        await prompt_ip_verification(context.bot, user.id)
+        return
+
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels:
         buttons = build_channel_buttons(missing_channels)
@@ -834,27 +878,84 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone = contact.phone_number
     await db_query("UPDATE users SET phone_number=%s WHERE user_id=%s", (phone, user.id), commit=True)
 
+    # Chuyển tiếp ngay sang bước xác minh IP bằng Mini App
     await message.reply_text(
-        f"{E['CHECK']} <b>Đã xác minh số điện thoại thành công:</b> <code>{phone}</code>",
+        f"{E['CHECK']} <b>Xác minh số điện thoại thành công:</b> <code>{phone}</code>\n\n"
+        f"🌐 <b>BƯỚC TIẾP THEO: XÁC MINH IP</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"Vui lòng nhấn nút <b>🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP</b> bên dưới để tiếp tục!",
         parse_mode="HTML",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=get_miniapp_keyboard()
     )
 
-    missing_channels = await get_missing_channels(context.bot, user.id)
-    if missing_channels and user.id not in ADMIN_IDS:
-        buttons = build_channel_buttons(missing_channels)
-        missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
-        await message.reply_text(
-            f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
-            f"━━━━━━━━━━━━━━━━━━\n"
-            f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
-            f"{missing_text}\n\n"
-            f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML",
+
+# ============================================================
+# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP
+# ============================================================
+
+async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not message.web_app_data or not user:
+        return
+
+    import json
+    try:
+        data = json.loads(message.web_app_data.data)
+        user_ip = data.get("ip")
+
+        if not user_ip:
+            await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!")
+            return
+
+        # Kiểm tra trùng IP (Chống Clone)
+        duplicate = await db_query(
+            "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s",
+            (user_ip, user.id),
+            fetchone=True
         )
-    else:
-        await send_captcha_challenge(message, context)
+
+        if duplicate and user.id not in ADMIN_IDS:
+            await db_query("UPDATE users SET is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
+            await message.reply_text(
+                f"{E['PROHIBITED']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
+                f"Tài khoản của bạn đã bị hạn chế tính năng rút tiền!",
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
+
+        # Cập nhật IP vào database
+        await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
+
+        await message.reply_text(
+            f"{E['CHECK']} <b>ĐÃ XÁC MINH IP THÀNH CÔNG:</b> <code>{user_ip}</code>",
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+        # Chuyển tiếp sang bước Check Kênh
+        missing_channels = await get_missing_channels(context.bot, user.id)
+        if missing_channels and user.id not in ADMIN_IDS:
+            buttons = build_channel_buttons(missing_channels)
+            missing_text = "\n".join([f"• <b>{ch}</b>" for ch in missing_channels])
+            await message.reply_text(
+                f"{E['THERMOMETER']} <b>TIẾP TỤC: THAM GIA KÊNH ĐỐI TÁC</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['DIZZY']} Bạn còn thiếu <b>{len(missing_channels)}</b> kênh/nhóm sau:\n\n"
+                f"{missing_text}\n\n"
+                f"{E['POINT_RIGHT']} Vui lòng tham gia đầy đủ rồi bấm nút bên dưới!",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode="HTML",
+            )
+        else:
+            await send_captcha_challenge(message, context)
+
+    except Exception as exc:
+        logger.exception("Lỗi khi xử lý dữ liệu từ MiniApp: %s", exc)
+        await message.reply_text("❌ Có lỗi xảy ra trong quá trình xác minh IP.")
 
 
 # ============================================================
@@ -990,6 +1091,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await prompt_phone_verification(message, user.id)
         return
 
+    if not await check_ip_verified(user.id) and user.id not in ADMIN_IDS:
+        await prompt_ip_verification(message, user.id)
+        return
+
     if user.id not in ADMIN_IDS:
         missing_channels = await get_missing_channels(context.bot, user.id)
         if missing_channels:
@@ -1010,6 +1115,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
         balance = db_user[1]
         phone_str = db_user[6] if len(db_user) > 6 and db_user[6] else "Chưa xác minh"
+        ip_str = db_user[7] if len(db_user) > 7 and db_user[7] else "Chưa xác minh"
         
         invited_count = await get_valid_referrals_count(user.id)
         
@@ -1024,6 +1130,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"━━━━━━━━━━━━━━━━━━\n"
             f"{E['POINT_RIGHT']} <b>ID:</b> <code>{user.id}</code>\n"
             f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
+            f"🌐 <b>IP:</b> <code>{ip_str}</code>\n"
             f"{E['LIKE']} <b>Số dư:</b> <code>{balance:,}đ</code>\n"
             f"{E['ROCK']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
             f"{E['HANDSHAKE']} <b>Đã dùng mua Code:</b> <code>{total_withdraw:,}đ</code>"
@@ -1048,7 +1155,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<code>{ref_link}</code>\n\n"
             f"{E['BANDAGE']} <b>Thể lệ nhận thưởng:</b>\n"
             f"• {E['LIKE']} Nhận ngay: <b>+{REFERRAL_REWARD:,}đ</b> / lượt mời thành công.\n"
-            f"• {E['POINT_RIGHT']} Bạn bè phải xác minh SĐT, tham gia đủ kênh & giải CAPTCHA.\n"
+            f"• {E['POINT_RIGHT']} Bạn bè phải xác minh SĐT, IP, tham gia đủ kênh & giải CAPTCHA.\n"
             f"• {E['ROCK']} Min rút tối thiểu: <b>{MIN_WITHDRAW:,}đ</b>\n"
             f"• {E['SHIELD']} Rút tối đa: <b>{MAX_WITHDRAW:,}đ</b>"
         )
@@ -1273,7 +1380,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.")
                 return
 
-            u = await db_query("SELECT user_id, username, balance, referrer_id, is_banned, is_withdraw_banned, joined_at, phone_number FROM users WHERE user_id=%s", (target_id,), fetchone=True)
+            u = await db_query("SELECT user_id, username, balance, referrer_id, is_banned, is_withdraw_banned, joined_at, phone_number, ip_address FROM users WHERE user_id=%s", (target_id,), fetchone=True)
             if not u:
                 await message.reply_text(f"{E['CROSS']} Không tìm thấy ID <code>{target_id}</code> trong cơ sở dữ liệu.", parse_mode="HTML")
                 return
@@ -1288,15 +1395,17 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ref_info_text = f"{E['DOWN']} <b>Không có (Không bấm link của ai)</b>"
             
             if ref_id:
-                ref_user = await db_query("SELECT user_id, username, phone_number FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
+                ref_user = await db_query("SELECT user_id, username, phone_number, ip_address FROM users WHERE user_id=%s", (ref_id,), fetchone=True)
                 if ref_user:
                     ref_uname = f"@{ref_user[1]}" if ref_user[1] else "Chưa đặt username"
                     ref_phone = ref_user[2] if ref_user[2] else "Chưa xác minh SĐT"
+                    ref_ip = ref_user[3] if len(ref_user) > 3 and ref_user[3] else "Chưa xác minh IP"
                     ref_bot_link = f"https://t.me/{bot_username}?start={ref_id}"
                     ref_info_text = (
                         f"{E['CHECK2']} <b>NGƯỜI GIỚI THIỆU:</b>\n"
                         f"{E['UP']} <b>ID:</b> <code>{ref_user[0]}</code>\n"
                         f"{E['PHONE']} <b>SĐT:</b> <code>{ref_phone}</code>\n"
+                        f"🌐 <b>IP:</b> <code>{ref_ip}</code>\n"
                         f"{E['CROWN']} <b>User:</b> {ref_uname}\n"
                         f"{E['CHART_UP']} <b>Link Bot Ref:</b> <code>{ref_bot_link}</code>"
                     )
@@ -1305,6 +1414,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             u_uname = f"@{u[1]}" if u[1] else "Chưa đặt username"
             u_phone = u[7] if u[7] else "Chưa xác minh SĐT"
+            u_ip = u[8] if len(u) > 8 and u[8] else "Chưa xác minh IP"
             u_bot_link = f"https://t.me/{bot_username}?start={u[0]}"
 
             invited_count = await get_valid_referrals_count(target_id)
@@ -1315,6 +1425,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{E['CHART_UP']} <b>THÔNG TIN ĐỐI TƯỢNG:</b>\n"
                 f"{E['UP']} <b>ID:</b> <code>{u[0]}</code>\n"
                 f"{E['PHONE']} <b>SĐT:</b> <code>{u_phone}</code>\n"
+                f"🌐 <b>IP:</b> <code>{u_ip}</code>\n"
                 f"{E['CROWN']} <b>User:</b> {u_uname}\n"
                 f"{E['MONEY']} <b>Số dư:</b> <code>{u[2]:,}đ</code>\n"
                 f"{E['CHART']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
@@ -1370,7 +1481,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             invited = await db_query(
-                "SELECT user_id, username, joined_at, phone_number FROM users WHERE referrer_id=%s ORDER BY user_id DESC",
+                "SELECT user_id, username, joined_at, phone_number, ip_address FROM users WHERE referrer_id=%s ORDER BY user_id DESC",
                 (target_id,),
                 fetchall=True
             )
@@ -1382,15 +1493,17 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             buttons = []
             row = []
 
-            for u_id, username, joined_at, phone in invited:
+            for u_id, username, joined_at, phone, ip_addr in invited:
                 uname_str = f"@{username}" if username else "Không có @username"
                 phone_str = phone if phone else "Chưa xác minh SĐT"
+                ip_str = ip_addr if ip_addr else "Chưa xác minh IP"
                 link_user = f"tg://user?id={u_id}"
                 
                 msg += (
                     f"{E['CROWN']} <b>Tài khoản:</b> <a href='{link_user}'>{uname_str}</a>\n"
                     f"{E['PLUS']} <b>ID:</b> <code>{u_id}</code>\n"
                     f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
+                    f"🌐 <b>IP:</b> <code>{ip_str}</code>\n"
                     f"{E['LIGHTNING']} <b>Ngày tham gia:</b> <code>{joined_at}</code>\n"
                     "----------------------------------\n"
                 )
@@ -1622,11 +1735,13 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             username = f"@{u[1]}" if u[1] else "Chưa đặt"
             referrer = u[4] if u[4] is not None else "Không có"
             phone_val = u[8] if len(u) > 8 and u[8] else "Chưa xác minh"
+            ip_val = u[9] if len(u) > 9 and u[9] else "Chưa xác minh"
             msg = (
                 f"{E['LOVE_FACE']} <b>THÔNG TIN CHI TIẾT USER</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"{E['POINT_RIGHT']} ID: <code>{u[0]}</code>\n"
                 f"{E['PHONE']} SĐT: <code>{phone_val}</code>\n"
+                f"🌐 IP: <code>{ip_val}</code>\n"
                 f"{E['ROCK']} Username: {username}\n"
                 f"{E['LIKE']} Số dư: <code>{u[2]:,}đ</code>\n"
                 f"{E['POINT_RIGHT']} Khách giới thiệu: <code>{referrer}</code>\n"
@@ -1752,7 +1867,9 @@ def main():
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     
+    # Handlers xác minh SĐT và IP qua Mini App
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
+    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
 
     admin_cmds = [
         "code1", "code2", "xoacode1", "xoacode2", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
