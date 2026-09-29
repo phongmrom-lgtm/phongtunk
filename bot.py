@@ -696,19 +696,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fetchone=True,
     )
 
-    # ===== NẾU TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN =====
+    # 🛑 1. KIỂM TRA NGAY TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN CHƯA (Ưu tiên số 1)
     if db_user and db_user[1] == 1:
         user_ip = db_user[4] if (len(db_user) > 4 and db_user[4]) else "Không xác định"
         await update.message.reply_text(
-            f"{E['PROHIBITED']} <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n"
+            f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"Lý do: Phát hiện trùng địa chỉ IP (<code>{user_ip}</code>) với tài khoản khác trên hệ thống.\n"
-            f"Hệ thống tự động cấm truy cập vĩnh viễn đối với các tài khoản vi phạm!",
+            f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
+            f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
         return
-    # ==============================================
 
     referrer_id = None
     if not db_user:
@@ -734,32 +733,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             commit=True,
         )
 
-    # 1. Kiểm tra SĐT
+    # 2. Kiểm tra SĐT
     is_phone_ok = await check_phone_verified(user.id)
     if not is_phone_ok and user.id not in ADMIN_IDS:
         await prompt_phone_verification(update.message, user.id)
         return
 
-    # 2. Kiểm tra IP Mini App (chỉ chạy nếu tài khoản chưa bị khóa vĩnh viễn)
+    # 3. Kiểm tra IP Mini App
     is_ip_ok = await check_ip_verified(user.id)
     if not is_ip_ok and user.id not in ADMIN_IDS:
-        # Kiểm tra chéo xem có bị ban do trùng IP không
-        check_ban = await db_query("SELECT is_banned, ip_address FROM users WHERE user_id=%s", (user.id,), fetchone=True)
-        if check_ban and check_ban[0] == 1:
-            user_ip = check_ban[1] if check_ban[1] else "Không xác định"
-            await update.message.reply_text(
-                f"{E['PROHIBITED']} <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"Lý do: Phát hiện trùng địa chỉ IP (<code>{user_ip}</code>) với tài khoản khác trên hệ thống.\n"
-                f"Hệ thống tự động cấm truy cập vĩnh viễn đối với các tài khoản vi phạm!",
-                parse_mode="HTML",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return
         await prompt_ip_verification(update.message, user.id)
         return
 
-    # 3. Kiểm tra Kênh/Nhóm
+    # 4. Kiểm tra Kênh/Nhóm
     missing_channels = await get_missing_channels(context.bot, user.id)
     if missing_channels and user.id not in ADMIN_IDS:
         buttons = build_channel_buttons(missing_channels)
@@ -776,7 +762,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        f"{E['LOVE_FACE']} <b>CHÀO MỪNG BẠN TRỞ LẠI HỆ THỐNG!</b>\n"
+        f"{E['LOVE_FACE']} <b>CHÀO MỪNG BẠN TRỜ LẠI HỆ THỐNG!</b>\n"
         f"{E['ROCK']} Hãy chọn một tính năng trong menu bên dưới:",
         reply_markup=get_main_keyboard(),
         parse_mode="HTML"
@@ -836,21 +822,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     if await is_maintenance() and user.id not in ADMIN_IDS:
         try:
             await query.answer("🔴 Hệ thống đang bảo trì.", show_alert=True)
-        except Exception:
-            pass
-        return
-
-    # Nếu tài khoản đã bị khóa vĩnh viễn
-    check_ban = await db_query("SELECT is_banned, ip_address FROM users WHERE user_id=%s", (user.id,), fetchone=True)
-    if check_ban and check_ban[0] == 1 and user.id not in ADMIN_IDS:
-        user_ip = check_ban[1] if check_ban[1] else "Không xác định"
-        try:
-            await query.edit_message_text(
-                f"{E['PROHIBITED']} <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"Lý do: Phát hiện trùng địa chỉ IP (<code>{user_ip}</code>) với tài khoản khác trên hệ thống.",
-                parse_mode="HTML"
-            )
         except Exception:
             pass
         return
@@ -925,7 +896,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP (KHÓA VĨNH VIỄN KHI TRÙNG IP)
+# XỬ LÝ DỮ LIỆU TỪ MINI APP CHECK IP (KHÓA TÀI KHOẢN VĨNH VIỄN)
 # ============================================================
 
 async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -951,7 +922,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
         if duplicate and user.id not in ADMIN_IDS:
-            # Khóa tài khoản vĩnh viễn (is_banned=1) và lưu địa chỉ IP
+            # 🟢 SỬA TẠI ĐÂY: Lưu lại địa chỉ IP đồng thời sét is_banned=1 để chặn vĩnh viễn ngay từ sau này
             await db_query(
                 "UPDATE users SET is_banned=1, is_withdraw_banned=1, ip_address=%s WHERE user_id=%s",
                 (user_ip, user.id),
@@ -960,10 +931,10 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             user_withdraw_state.pop(user.id, None)
             
             await message.reply_text(
-                f"{E['PROHIBITED']} <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n"
+                f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng trên hệ thống.\n"
-                f"Tài khoản của bạn đã bị khóa vĩnh viễn do vi phạm quy định trùng IP!",
+                f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
+                f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardRemove()
             )
@@ -1125,9 +1096,12 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not db_user or db_user[3] == 1:
         ip_val = db_user[7] if (db_user and len(db_user) > 7 and db_user[7]) else "Không xác định"
         await message.reply_text(
-            f"{E['PROHIBITED']} <b>Tài khoản của bạn đã bị KHÓA VĨNH VIỄN!</b>\n"
-            f"Lý do: Trùng địa chỉ IP (<code>{ip_val}</code>).",
-            parse_mode="HTML"
+            f"⚡️ <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"Địa chỉ IP <code>{ip_val}</code> đã được tài khoản khác sử dụng.\n"
+            f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove()
         )
         return
 
@@ -1291,7 +1265,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         fetchone=True,
     )
     if not db_user or db_user[1] == 1:
-        await query.edit_message_text(f"{E['DISLIKE']} Tài khoản của bạn đã bị khóa!")
+        await query.edit_message_text(f"{E['DISLIKE']} Tài khoản của bạn đã bị khóa vĩnh viễn!")
         return
     if db_user[2] == 1:
         await query.edit_message_text(f"{E['DISLIKE']} Tài khoản của bạn đã bị cấm rút code!")
