@@ -51,7 +51,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia (Đã xóa @conmuamenmenl)
 REQUIRED_CHECK_CHANNELS = [
     "@sanhugame",
     "@sancode22",
@@ -61,7 +61,6 @@ REQUIRED_CHECK_CHANNELS = [
     "@vtc345",
     "@vtc567",
     "@hocviencbm",
-    "@conmuamenmenl",
 ]
 
 # Kênh hiển thị thêm KHÔNG kiểm tra tham gia
@@ -472,9 +471,7 @@ async def check_channel_membership(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
-    CUSTOM_CHANNEL_URLS = {
-        "@conmuamenmenl": "https://t.me/conmuamenmenl",
-    }
+    CUSTOM_CHANNEL_URLS = {}
 
     buttons = []
     for ch in missing_channels:
