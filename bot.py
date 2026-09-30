@@ -89,7 +89,7 @@ E = {
     "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
     "CARD": '<tg-emoji emoji-id="5240066289614987080">💳</tg-emoji>',
     "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
-    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️️</tg-emoji>',
+    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡</tg-emoji>',
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
     "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔</tg-emoji>',
     "CROSS": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
@@ -158,6 +158,12 @@ E = {
     "NO_ENTRY": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
     "SWORD": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "POOP": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
+    
+    # Emoji số thứ tự tùy chỉnh theo yêu cầu
+    "NUM_1": '<tg-emoji emoji-id="5305763715692377402">1️⃣</tg-emoji>',
+    "NUM_2": '<tg-emoji emoji-id="5307907239380528763">2️⃣</tg-emoji>',
+    "NUM_3": '<tg-emoji emoji-id="5859438077352612949">3️⃣</tg-emoji>',
+    "NUM_4": '<tg-emoji emoji-id="5305255243104138538">4️⃣</tg-emoji>',
 }
 
 
@@ -1445,11 +1451,10 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{E['LIKE']} <b>Số Tiền Mua:</b> {CODE_PRICE:,}đ\n"
                 f"{E['POINT_RIGHT']} <b>Mã Code:</b> <code>{result}</code>\n\n"
                 f"{E['THERMOMETER']} <b>Quy Định Rút Code</b>\n"
-                f"1. Cược Đủ 3 Vòng Cược Của Code\n"
-                f"2. Tài Khoản Tân Thủ Đánh Code Lên Yêu Cầu Nạp 50K Để Rút\n"
-                f"3. Tài Khoản Nào Đã Có Lịch Sử Nạp Trên 50K Rút Không Cần Nạp\n"
-                f"4. Không Được Dồn Quá 5 Code Cho 1 Tài Khoản\n"
-                f"{E['POOP']} Phát Hiện Khấu Toàn Bộ Số Dư",
+                f"{E['NUM_1']} Cược Đủ 1 Vòng Cược Số Tiền Code Là Đủ Điều Kiện Rút Tiền\n"
+                f"{E['NUM_2']} Những Tài Khoản Nào Chưa Có Lịch Sử Nạp Trên 50K Muốn Rút Thì Yêu Cầu Nạp 50K Và Cược 50K ( X1 VC )\n"
+                f"{E['NUM_3']} Tài Khoản Nào Đã Có Lịch Sử Nạp Trên 50K Rồi Thì Code Lên Rút Thoải Mãi\n"
+                f"{E['NUM_4']} Không Được Rồn Code Và Không Được Nhập Quá 5 Code Trên 1Ngày ( Code Từ Bot Không Cấm Nhập Code Từ Sự Kiện Khác )",
                 parse_mode="HTML"
             )
 
