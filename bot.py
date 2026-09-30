@@ -51,7 +51,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia (Đã thêm @xomgamee24h và https://t.me/conmuamenmenl)
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
 REQUIRED_CHECK_CHANNELS = [
     "@sanhugame",
     "@sancode22",
@@ -89,7 +89,7 @@ E = {
     "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
     "CARD": '<tg-emoji emoji-id="5240066289614987080">💳</tg-emoji>',
     "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
-    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
+    "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️️</tg-emoji>',
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
     "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔</tg-emoji>',
     "CROSS": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
@@ -110,7 +110,7 @@ E = {
     "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
-    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️️</tg-emoji>',
+    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
@@ -301,7 +301,6 @@ def _init_db_sync():
                 )
                 """
             )
-            # Bảng lưu trữ code đã bị xóa (dùng cho lệnh /lsxoa)
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS code_deleted_log (
@@ -464,7 +463,6 @@ def generate_captcha():
 async def get_missing_channels(bot, user_id):
     async def check_one(channel):
         try:
-            # Nếu là link dạng https://t.me/... thì tách lấy username/tên kênh
             ch_target = channel
             if "t.me/" in channel:
                 ch_target = "@" + channel.split("t.me/")[-1].strip("/")
@@ -1037,8 +1035,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
             return
 
-        # Kiểm tra xem IP này đã được tài khoản khác sử dụng chưa
-        # Nếu tài khoản này đã từng dùng IP này rồi thì vẫn dùng lại được (ngoại trừ bị gán sang tài khoản khác hoàn toàn mới khóa)
+        # Kiểm tra xem IP này có trùng với tài khoản KHÁC không (nếu khác IP cũ mới kiểm tra trùng)
         current_user_db = await db_query("SELECT ip_address FROM users WHERE user_id=%s", (user.id,), fetchone=True)
         old_user_ip = current_user_db[0] if current_user_db else None
 
@@ -1497,6 +1494,10 @@ async def build_admin_menu():
         f"💳 Tính năng Rút Tiền: {'🟢 BẬT' if st_withdraw else '🔴 TẮT'}",
         callback_data="toggle_allow_withdraw"
     )
+    btn_verify_all = InlineKeyboardButton(
+        f"🔄 Xác Minh Toàn Bộ Thành Viên",
+        callback_data="admin_verify_all"
+    )
 
     buttons = [
         [btn_phone],
@@ -1504,7 +1505,8 @@ async def build_admin_menu():
         [btn_channel],
         [btn_captcha],
         [btn_auto_lock],
-        [btn_withdraw]
+        [btn_withdraw],
+        [btn_verify_all]
     ]
 
     text = (
@@ -1528,6 +1530,21 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     data = query.data or ""
+    
+    if data == "admin_verify_all":
+        await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0", commit=True)
+        try:
+            await query.answer("Đã đặt lại xác minh toàn bộ thành công!", show_alert=True)
+        except Exception:
+            pass
+        await query.message.reply_text(
+            f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH TOÀN BỘ THÀNH VIÊN!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"Tất cả người dùng sẽ phải xác minh lại từ đầu khi tương tác với Bot.",
+            parse_mode="HTML"
+        )
+        return
+
     key_map = {
         "toggle_verify_phone": "verify_phone",
         "toggle_verify_ip": "verify_ip",
@@ -1557,7 +1574,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # ============================================================
-# ADMIN COMMANDS (THÊM /xoacodeall, /lsxoa, /xmtb)
+# ADMIN COMMANDS
 # ============================================================
 
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1596,7 +1613,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db_query("UPDATE users SET is_banned=0, is_withdraw_banned=1 WHERE user_id=%s", (target_id,), commit=True)
             await message.reply_text(f"{E['LIKE']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
 
-        # LỆNH /xmtb: Bật lại xác minh cho toàn bộ thành viên
         elif cmd == "/xmtb":
             await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0", commit=True)
             await message.reply_text(
@@ -1606,8 +1622,8 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
-        # LỆNH /xoacodeall: Xóa toàn bộ code trong kho
-        elif cmd == "/xoacodeall":
+        # LỆNH /xoatb (Xóa toàn bộ kho code)
+        elif cmd in ("/xoatb", "/xoacodeall"):
             def clear_all_codes(cursor):
                 cursor.execute("SELECT code_val FROM code_stock")
                 rows = cursor.fetchall()
@@ -1625,7 +1641,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
-        # LỆNH /lsxoa: Xem lịch sử các code đã xóa/dùng
         elif cmd == "/lsxoa":
             deleted_logs = await db_query(
                 "SELECT id, code_val, deleted_at FROM code_deleted_log ORDER BY id DESC LIMIT 50",
@@ -1863,41 +1878,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg = msg[:3950] + "\n\n<i>... (Danh sách quá dài đã được rút gọn)</i>"
 
             await message.reply_text(msg, parse_mode="HTML")
-
-        elif cmd == "/xoacode":
-            lines = raw_text.split(maxsplit=1)
-            if len(lines) < 2:
-                await message.reply_text(
-                    f"{E['THERMOMETER']} <b>Cú pháp:</b> <code>/xoacode mã_code1 mã_code2 ...</code>",
-                    parse_mode="HTML"
-                )
-                return
-
-            codes_raw = lines[1]
-            codes = re.split(r"[\s\n]+", codes_raw.strip())
-            codes = [c.strip() for c in codes if c.strip()]
-
-            if not codes:
-                await message.reply_text(f"{E['CROSS']} Không tìm thấy mã code hợp lệ để xóa.", parse_mode="HTML")
-                return
-
-            def delete_codes(cursor):
-                now = get_now_str()
-                for c in codes:
-                    cursor.execute("INSERT INTO code_deleted_log (code_val, deleted_at) VALUES (%s, %s)", (c, now))
-                cursor.execute(
-                    "DELETE FROM code_stock WHERE code_val = ANY(%s)",
-                    (codes,)
-                )
-                return cursor.rowcount
-
-            deleted_count = await db_transaction(delete_codes)
-            await message.reply_text(
-                f"{E['DISLIKE']} <b>XÓA CODE KHỎI KHO THÀNH CÔNG!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"• Đã xóa thành công: <b>{deleted_count:,} / {len(codes):,}</b> code khỏi hệ thống.",
-                parse_mode="HTML"
-            )
 
         elif cmd == "/kho":
             res1 = await db_query("SELECT COUNT(*) FROM code_stock WHERE is_used=0", fetchone=True)
@@ -2159,7 +2139,7 @@ def main():
     app.add_handler(CommandHandler("menu", admin_menu_command))
     
     app.add_handler(ChatMemberHandler(chat_member_updated_handler, ChatMemberHandler.CHAT_MEMBER))
-    app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^toggle_"))
+    app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
@@ -2168,7 +2148,7 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
 
     admin_cmds = [
-        "addcode", "dscode", "xoacode", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
+        "addcode", "dscode", "xoatb", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl", "bo", "moip"
     ]
     for command in admin_cmds:
