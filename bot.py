@@ -51,7 +51,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia (Đã thêm @xomgamee24h và https://t.me/conmuamenmenl)
 REQUIRED_CHECK_CHANNELS = [
     "@sanhugame",
     "@sancode22",
@@ -61,6 +61,8 @@ REQUIRED_CHECK_CHANNELS = [
     "@vtc345",
     "@vtc567",
     "@hocviencbm",
+    "@xomgamee24h",
+    "https://t.me/conmuamenmenl",
 ]
 
 # Kênh hiển thị thêm KHÔNG kiểm tra tham gia
@@ -89,7 +91,7 @@ E = {
     "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji>',
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔️️</tg-emoji>',
+    "CHECK2": '<tg-emoji emoji-id="5206607081334906820">✔</tg-emoji>',
     "CROSS": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
     "CANDLE": '<tg-emoji emoji-id="5451882707875276247">🕯</tg-emoji>',
     "CHART": '<tg-emoji emoji-id="5231200819986047254">📊</tg-emoji>',
@@ -108,7 +110,7 @@ E = {
     "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
-    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
+    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️️</tg-emoji>',
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
@@ -299,6 +301,17 @@ def _init_db_sync():
                 )
                 """
             )
+            # Bảng lưu trữ code đã bị xóa (dùng cho lệnh /lsxoa)
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS code_deleted_log (
+                    id BIGSERIAL PRIMARY KEY,
+                    code_val TEXT NOT NULL,
+                    deleted_at TEXT NOT NULL
+                )
+                """
+            )
+
             default_settings = [
                 ('maintenance', '0'),
                 ('verify_phone', '1'),
@@ -451,7 +464,12 @@ def generate_captcha():
 async def get_missing_channels(bot, user_id):
     async def check_one(channel):
         try:
-            member = await bot.get_chat_member(chat_id=channel, user_id=user_id)
+            # Nếu là link dạng https://t.me/... thì tách lấy username/tên kênh
+            ch_target = channel
+            if "t.me/" in channel:
+                ch_target = "@" + channel.split("t.me/")[-1].strip("/")
+            
+            member = await bot.get_chat_member(chat_id=ch_target, user_id=user_id)
             if member.status in ("left", "kicked"):
                 return channel
         except Exception as exc:
@@ -474,12 +492,18 @@ def build_channel_buttons(missing_channels):
 
     buttons = []
     for ch in missing_channels:
-        channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
+        if "t.me/" in ch:
+            channel_url = ch
+        else:
+            channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
         buttons.append([
             InlineKeyboardButton(f"{E['POINT_RIGHT']} Tham gia: {ch}", url=channel_url)
         ])
     for ch in OPTIONAL_DISPLAY_CHANNELS:
-        channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
+        if "t.me/" in ch:
+            channel_url = ch
+        else:
+            channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
         buttons.append([
             InlineKeyboardButton(f"{E['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=channel_url)
         ])
@@ -1013,29 +1037,35 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
             return
 
-        duplicate = await db_query(
-            "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s AND skip_ip=0",
-            (user_ip, user.id),
-            fetchone=True
-        )
+        # Kiểm tra xem IP này đã được tài khoản khác sử dụng chưa
+        # Nếu tài khoản này đã từng dùng IP này rồi thì vẫn dùng lại được (ngoại trừ bị gán sang tài khoản khác hoàn toàn mới khóa)
+        current_user_db = await db_query("SELECT ip_address FROM users WHERE user_id=%s", (user.id,), fetchone=True)
+        old_user_ip = current_user_db[0] if current_user_db else None
 
-        if duplicate and user.id not in ADMIN_IDS:
-            await db_query(
-                "UPDATE users SET is_banned=1, is_withdraw_banned=1, ip_address=%s WHERE user_id=%s",
+        if old_user_ip != user_ip:
+            duplicate = await db_query(
+                "SELECT user_id FROM users WHERE ip_address=%s AND user_id!=%s AND skip_ip=0",
                 (user_ip, user.id),
-                commit=True
+                fetchone=True
             )
-            user_withdraw_state.pop(user.id, None)
-            
-            await message.reply_text(
-                f"{E['LIGHTNING']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
-                f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
-                parse_mode="HTML",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            return
+
+            if duplicate and user.id not in ADMIN_IDS:
+                await db_query(
+                    "UPDATE users SET is_banned=1, is_withdraw_banned=1, ip_address=%s WHERE user_id=%s",
+                    (user_ip, user.id),
+                    commit=True
+                )
+                user_withdraw_state.pop(user.id, None)
+                
+                await message.reply_text(
+                    f"{E['LIGHTNING']} <b>PHÁT HIỆN TRÙNG IP!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"Địa chỉ IP <code>{user_ip}</code> đã được tài khoản khác sử dụng.\n"
+                    f"Tài khoản của bạn đã bị <b>khóa vĩnh viễn</b> do trùng IP và full thông tin!",
+                    parse_mode="HTML",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+                return
 
         await db_query("UPDATE users SET ip_address=%s WHERE user_id=%s", (user_ip, user.id), commit=True)
 
@@ -1149,7 +1179,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# MENU & RÚT CODE CALLBACKS (ĐÃ CẬP NHẬT RÚT CODE 2000Đ)
+# MENU & RÚT CODE CALLBACKS
 # ============================================================
 
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1527,7 +1557,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # ============================================================
-# ADMIN COMMANDS (THÊM /dscode VÀ /addcode, XÓA /code1 /code2)
+# ADMIN COMMANDS (THÊM /xoacodeall, /lsxoa, /xmtb)
 # ============================================================
 
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1565,6 +1595,58 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await db_query("UPDATE users SET is_banned=0, is_withdraw_banned=1 WHERE user_id=%s", (target_id,), commit=True)
             await message.reply_text(f"{E['LIKE']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
+
+        # LỆNH /xmtb: Bật lại xác minh cho toàn bộ thành viên
+        elif cmd == "/xmtb":
+            await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0", commit=True)
+            await message.reply_text(
+                f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
+                parse_mode="HTML"
+            )
+
+        # LỆNH /xoacodeall: Xóa toàn bộ code trong kho
+        elif cmd == "/xoacodeall":
+            def clear_all_codes(cursor):
+                cursor.execute("SELECT code_val FROM code_stock")
+                rows = cursor.fetchall()
+                now = get_now_str()
+                for (cval,) in rows:
+                    cursor.execute("INSERT INTO code_deleted_log (code_val, deleted_at) VALUES (%s, %s)", (cval, now))
+                cursor.execute("DELETE FROM code_stock")
+                return len(rows)
+
+            count_deleted = await db_transaction(clear_all_codes)
+            await message.reply_text(
+                f"{E['DISLIKE']} <b>ĐÃ XÓA TOÀN BỘ KHO CODE!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"• Đã xóa sạch: <b>{count_deleted:,}</b> mã code khỏi hệ thống (Đã lưu vào lịch sử xóa).",
+                parse_mode="HTML"
+            )
+
+        # LỆNH /lsxoa: Xem lịch sử các code đã xóa/dùng
+        elif cmd == "/lsxoa":
+            deleted_logs = await db_query(
+                "SELECT id, code_val, deleted_at FROM code_deleted_log ORDER BY id DESC LIMIT 50",
+                fetchall=True
+            )
+            if not deleted_logs:
+                await message.reply_text(f"{E['BANDAGE']} <b>Chưa có lịch sử mã code nào bị xóa!</b>", parse_mode="HTML")
+                return
+
+            msg = (
+                f"{E['ROCK']} <b>LỊCH SỬ MÃ CODE ĐÃ XÓA</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['POINT_RIGHT']} <i>Hiển thị 50 mã code đã xóa gần nhất:</i>\n\n"
+            )
+            for cid, cval, cat in deleted_logs:
+                msg += f"• ID: <code>{cid}</code> | Code: <code>{cval}</code> | Xóa lúc: <code>{cat}</code>\n"
+
+            if len(msg) > 4000:
+                msg = msg[:3950] + "\n\n<i>... (Danh sách quá dài đã được rút gọn)</i>"
+
+            await message.reply_text(msg, parse_mode="HTML")
 
         elif cmd == "/dl":
             if not args:
@@ -1740,7 +1822,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 now = get_now_str()
                 count = 0
                 for c in codes:
-                    # Tự động phân tích code (ví dụ: phân loại type_code dựa vào độ dài hoặc ký tự nếu cần, mặc định type_code = 1)
                     type_code = 1
                     cursor.execute(
                         "INSERT INTO code_stock (type_code, code_val, created_at) VALUES (%s, %s, %s)",
@@ -1801,6 +1882,9 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             def delete_codes(cursor):
+                now = get_now_str()
+                for c in codes:
+                    cursor.execute("INSERT INTO code_deleted_log (code_val, deleted_at) VALUES (%s, %s)", (c, now))
                 cursor.execute(
                     "DELETE FROM code_stock WHERE code_val = ANY(%s)",
                     (codes,)
@@ -1855,7 +1939,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.reply_text(msg, parse_mode="HTML")
 
         elif cmd == "/resetall":
-            await db_query("TRUNCATE TABLE users, transactions, code_stock RESTART IDENTITY", commit=True)
+            await db_query("TRUNCATE TABLE users, transactions, code_stock, code_deleted_log RESTART IDENTITY", commit=True)
             user_msg_tracker.clear()
             temp_bans.clear()
             user_withdraw_state.clear()
@@ -2084,7 +2168,7 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
 
     admin_cmds = [
-        "addcode", "dscode", "xoacode", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
+        "addcode", "dscode", "xoacode", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl", "bo", "moip"
     ]
     for command in admin_cmds:
