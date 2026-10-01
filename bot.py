@@ -53,6 +53,7 @@ TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
 # Kênh/Nhóm BẮT BỘC kiểm tra tham gia
 REQUIRED_CHECK_CHANNELS = [
+    "@khuyenmaionline",
     "@sanhugame",
     "@sancode22",
     "@xombao247",
