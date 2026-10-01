@@ -51,7 +51,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia (Đã đổi @xomgamee24h thành @hongtinmoingay24)
 REQUIRED_CHECK_CHANNELS = [
     "@khuyenmaionline",
     "@sanhugame",
@@ -62,7 +62,7 @@ REQUIRED_CHECK_CHANNELS = [
     "@vtc345",
     "@vtc567",
     "@hocviencbm",
-    "@xomgamee24h",
+    "@hongtinmoingay24",
     "https://t.me/conmuamenmenl",
 ]
 
