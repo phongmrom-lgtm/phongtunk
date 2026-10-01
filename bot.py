@@ -28,7 +28,6 @@ from telegram import (
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
-    ChatMemberHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -51,7 +50,7 @@ ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia (Đã đổi @xomgamee24h thành @hongtinmoingay24)
+# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
 REQUIRED_CHECK_CHANNELS = [
     "@khuyenmaionline",
     "@sanhugame",
@@ -324,7 +323,6 @@ def _init_db_sync():
                 ('verify_ip', '1'),
                 ('verify_channel', '1'),
                 ('verify_captcha', '1'),
-                ('auto_lock_leave', '1'),
                 ('allow_withdraw', '1')
             ]
             for key, val in default_settings:
@@ -516,103 +514,6 @@ def build_channel_buttons(missing_channels):
         InlineKeyboardButton("❇️ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")
     ])
     return buttons
-
-
-# ============================================================
-# XỬ LÝ RỜI/THAM GIA LẠI
-# ============================================================
-
-async def chat_member_updated_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    result = update.chat_member or update.my_chat_member
-    if not result:
-        return
-    
-    if not await get_verify_setting("auto_lock_leave"):
-        return
-
-    old_state = result.old_chat_member.status
-    new_state = result.new_chat_member.status
-    user = result.new_chat_member.user
-
-    user_info = await db_query(
-        "SELECT referrer_id FROM users WHERE user_id=%s",
-        (user.id,),
-        fetchone=True,
-    )
-    if not user_info or not user_info[0]:
-        return
-    ref_id = user_info[0]
-    username_str = f"@{user.username}" if user.username else str(user.id)
-
-    if old_state in ("member", "administrator", "creator") and new_state in ("left", "kicked"):
-        await db_query(
-            "UPDATE users SET is_withdraw_banned=1 WHERE user_id=%s",
-            (ref_id,),
-            commit=True,
-        )
-        user_withdraw_state.pop(ref_id, None)
-        try:
-            await context.bot.send_message(
-                chat_id=user.id,
-                text=(
-                    f"{E['DISLIKE']} <b>THÔNG BÁO TỪ HỆ THỐNG</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['DIZZY']} Bạn đã rời khỏi nhóm/kênh đối tác bắt buộc.\n"
-                    f"{E['THERMOMETER']} Tài khoản của bạn và người giới thiệu bạn đã bị hạn chế các tính năng rút tiền!"
-                ),
-                parse_mode="HTML",
-            )
-        except Exception as exc:
-            logger.warning("Không gửi được thông báo cho người rời nhóm %s: %s", user.id, exc)
-        try:
-            await context.bot.send_message(
-                chat_id=ref_id,
-                text=(
-                    f"{E['DISLIKE']} <b>CẢNH BÁO KHÓA RÚT TIỀN!</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['DIZZY']} Thành viên được bạn mời (<b>{username_str}</b> - <code>{user.id}</code>) đã rời khỏi nhóm/kênh đối tác.\n"
-                    f"{E['THERMOMETER']} <b>Lý do bị khóa:</b> Người được bạn mời đã rời nhóm nên hệ thống tiến hành khoá tính năng rút tiền của bạn!"
-                ),
-                parse_mode="HTML",
-            )
-        except Exception as exc:
-            logger.warning("Không gửi được thông báo khóa rút tiền cho referrer %s: %s", ref_id, exc)
-
-    elif old_state in ("left", "kicked") and new_state in ("member", "administrator", "creator"):
-        is_fully_joined = await check_channel_membership(context.bot, user.id)
-        if is_fully_joined:
-            invited_users = await db_query(
-                "SELECT user_id FROM users WHERE referrer_id=%s",
-                (ref_id,),
-                fetchall=True,
-            )
-            all_friends_joined = True
-            if invited_users:
-                async def check_friend(inv_id):
-                    return await check_channel_membership(context.bot, inv_id)
-                tasks = [check_friend(inv_id) for (inv_id,) in invited_users]
-                results = await asyncio.gather(*tasks)
-                if not all(results):
-                    all_friends_joined = False
-            if all_friends_joined:
-                await db_query(
-                    "UPDATE users SET is_withdraw_banned=0 WHERE user_id=%s",
-                    (ref_id,),
-                    commit=True,
-                )
-                try:
-                    await context.bot.send_message(
-                        chat_id=ref_id,
-                        text=(
-                            f"{E['LIKE']} <b>THÔNG BÁO MỞ KHÓA RÚT TIỀN!</b>\n"
-                            f"━━━━━━━━━━━━━━━━━━\n"
-                            f"{E['LOVE_FACE']} Thành viên được bạn mời (<b>{username_str}</b> - <code>{user.id}</code>) đã tham gia lại nhóm/kênh đối tác.\n"
-                            f"{E['ROCK']} <b>Hệ thống đã tự động mở khóa tính năng rút tiền cho bạn!</b>"
-                        ),
-                        parse_mode="HTML",
-                    )
-                except Exception as exc:
-                    logger.warning("Không gửi được thông báo mở khóa rút tiền cho referrer %s: %s", ref_id, exc)
 
 
 # ============================================================
@@ -1473,7 +1374,6 @@ async def build_admin_menu():
     st_ip = await get_verify_setting("verify_ip")
     st_channel = await get_verify_setting("verify_channel")
     st_captcha = await get_verify_setting("verify_captcha")
-    st_auto_lock = await get_verify_setting("auto_lock_leave")
     st_withdraw = await get_verify_setting("allow_withdraw")
 
     btn_phone = InlineKeyboardButton(
@@ -1492,10 +1392,6 @@ async def build_admin_menu():
         f"🧩 Check CAPTCHA: {'🟢 BẬT' if st_captcha else '🔴 TẮT'}",
         callback_data="toggle_verify_captcha"
     )
-    btn_auto_lock = InlineKeyboardButton(
-        f"🔒 Khóa rút khi bạn rời nhóm: {'🟢 BẬT' if st_auto_lock else '🔴 TẮT'}",
-        callback_data="toggle_auto_lock_leave"
-    )
     btn_withdraw = InlineKeyboardButton(
         f"💳 Tính năng Rút Tiền: {'🟢 BẬT' if st_withdraw else '🔴 TẮT'}",
         callback_data="toggle_allow_withdraw"
@@ -1510,7 +1406,6 @@ async def build_admin_menu():
         [btn_ip],
         [btn_channel],
         [btn_captcha],
-        [btn_auto_lock],
         [btn_withdraw],
         [btn_verify_all]
     ]
@@ -1556,7 +1451,6 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_verify_ip": "verify_ip",
         "toggle_verify_channel": "verify_channel",
         "toggle_verify_captcha": "verify_captcha",
-        "toggle_auto_lock_leave": "auto_lock_leave",
         "toggle_allow_withdraw": "allow_withdraw",
     }
 
@@ -2144,7 +2038,6 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("menu", admin_menu_command))
     
-    app.add_handler(ChatMemberHandler(chat_member_updated_handler, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
