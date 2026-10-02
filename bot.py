@@ -90,7 +90,7 @@ E = {
     "PIN": '<tg-emoji emoji-id="5391032818111363540">📍</tg-emoji>',
     "SOON": '<tg-emoji emoji-id="5440621591387980068">🔜</tg-emoji>',
     "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
-    "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️</tg-emoji>',
+    "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️️</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
     "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
@@ -343,8 +343,6 @@ async def is_maintenance():
 # HÀM TẠO CAPTCHA PHÉP TÍNH HOẶC CHUỖI LỘN XỘN (3 SỐ, 4 CHỮ HOA THƯỜNG)
 # ============================================================
 def generate_random_captcha():
-    """Tạo phép tính ngẫu nhiên hoặc chuỗi gồm chữ hoa/thường, số kết hợp (như yêu cầu)."""
-    # Tạo phép toán cộng/trừ ngẫu nhiên giống mẫu bạn gửi (vd: 23 + 13 = ?)
     num1 = random.randint(10, 99)
     num2 = random.randint(10, 99)
     op = random.choice(['+', '-'])
@@ -357,16 +355,9 @@ def generate_random_captcha():
         ans = num1 - num2
         
     expr_text = f"{num1} {op} {num2} = ?"
-    
-    # Hoặc nếu muốn trộn thêm 3 chữ số và 4 chữ cái viết hoa/thường ngẫu nhiên cho phức tạp lộn xộn:
-    letters = ''.join(random.choice(string.ascii_letters) for _ in range(4))
-    digits = ''.join(random.choice(string.digits) for _ in range(3))
-    # Bạn có thể chọn dạng hiển thị phép tính thuần túy hoặc kèm chuỗi ký tự nhiễu. 
-    # Dưới đây chọn dạng Phép tính (đáp án là số) hoặc chuỗi tùy ý. Để đáp ứng yêu cầu "phép tính mỗi lần khác nhau gồm 3 chữ cái...":
     return expr_text, str(ans)
 
 def generate_captcha_image_bytes(display_text: str) -> bytes:
-    """Vẽ ảnh chứa phép tính/captcha trên nền tối."""
     img_width, img_height = 420, 160
     image = Image.new("RGB", (img_width, img_height), color=(15, 20, 35))
     draw = ImageDraw.Draw(image)
@@ -428,10 +419,6 @@ async def get_missing_channels(bot, user_id):
     tasks = [check_one(ch) for ch in REQUIRED_CHECK_CHANNELS]
     results = await asyncio.gather(*tasks)
     return [ch for ch in results if ch is not None]
-
-async def check_channel_membership(bot, user_id):
-    missing = await get_missing_channels(bot, user_id)
-    return len(missing) == 0
 
 def build_channel_buttons(missing_channels):
     CUSTOM_CHANNEL_URLS = {}
@@ -712,26 +699,22 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
 async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user):
     user_id = user.id
 
-    # 1. Xác minh SĐT
     if await get_verify_setting("verify_phone"):
         if not await check_phone_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_phone_verification(update_or_msg, user_id)
             return
 
-    # 2. Xác minh IP
     if await get_verify_setting("verify_ip"):
         if not await check_ip_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_ip_verification(update_or_msg, user_id)
             return
 
-    # 3. Xác minh CAPTCHA
     if await get_verify_setting("verify_captcha"):
         if user_id in pending_captcha_users:
             return
         await send_captcha_challenge(update_or_msg, context, user_id)
         return
 
-    # 4. Xác minh Kênh
     if await get_verify_setting("verify_channel"):
         if user_id not in ADMIN_IDS:
             missing_channels = await get_missing_channels(context.bot, user_id)
@@ -751,7 +734,6 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
                     await context.bot.send_message(chat_id=user_id, text=msg, reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML")
                 return
 
-    # 5. Hoàn tất
     await finalize_user_registration(user, context)
 
 # ============================================================
@@ -1329,7 +1311,49 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        if cmd == "/bo":
+        # Lệnh /mcall id: Mở tất cả hạn chế hoặc bị khoá cho người đó
+        if cmd == "/mcall":
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/mcall USER_ID</code>", parse_mode="HTML")
+                return
+            try: target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
+                return
+            
+            await db_query(
+                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1 WHERE user_id=%s",
+                (target_id,), commit=True
+            )
+            pending_captcha_users.pop(target_id, None)
+            temp_bans.pop(target_id, None)
+            
+            await message.reply_text(
+                f"{E['LIKE']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
+                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code và bỏ qua kiểm tra IP.",
+                parse_mode="HTML"
+            )
+
+        # Lệnh /cpmo id: Mở khóa tài khoản khi nhập sai capcha hoặc bị khoá
+        elif cmd == "/cpmo":
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/cpmo USER_ID</code>", parse_mode="HTML")
+                return
+            try: target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
+                return
+            
+            await db_query("UPDATE users SET is_banned=0 WHERE user_id=%s", (target_id,), commit=True)
+            pending_captcha_users.pop(target_id, None)
+            
+            await message.reply_text(
+                f"{E['LIKE']} <b>ĐÃ MỞ KHÓA CAPTCHA/TÀI KHOẢN CHO ID:</b> <code>{target_id}</code>\n"
+                f"• Người dùng có thể tiếp tục thao tác bình thường.",
+                parse_mode="HTML"
+            )
+
+        elif cmd == "/bo":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/bo USER_ID</code>", parse_mode="HTML")
                 return
@@ -1863,12 +1887,14 @@ def main():
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
+    
     admin_cmds = [
         "addcode", "dscode", "xoatb", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
-        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip"
+        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip", "mcall", "cpmo"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
+        
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
     logger.info("🤖 Bot chạy thành công với Captcha phép tính ngẫu nhiên...")
