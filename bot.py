@@ -157,7 +157,7 @@ TEMP_BAN_MINUTES = 2
 user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
-pending_captcha_users = {} # Lưu trạng thái captcha
+pending_captcha_users = {}
 
 # ============================================================
 # LOG
@@ -344,28 +344,15 @@ async def is_maintenance():
 # ============================================================
 def generate_random_captcha():
     """Tạo chuỗi captcha ngẫu nhiên gồm chữ cái, số hoặc cả hai."""
-    # Độ dài từ 4 đến 6 ký tự
     length = random.randint(4, 6)
-    
-    # Lựa chọn loại ký tự: 0 - chỉ số, 1 - chỉ chữ, 2 - cả hai
     choice = random.randint(0, 2)
-    
     if choice == 0:
-        # Chỉ số
         characters = string.digits
     elif choice == 1:
-        # Chỉ chữ cái (viết hoa và thường)
         characters = string.ascii_letters
     else:
-        # Cả chữ và số
         characters = string.ascii_letters + string.digits
-        
     captcha_text = ''.join(random.choice(characters) for _ in range(length))
-    
-    # Đảm bảo không có ký tự gây nhầm lẫn nếu cần (có thể bỏ qua)
-    # Loại bỏ các ký tự dễ nhầm lẫn như '0', 'O', '1', 'l', 'I'
-    # Tuy nhiên theo yêu cầu là chữ và số, ta giữ nguyên.
-    
     return captcha_text
 
 def generate_captcha_image_bytes(captcha_text: str) -> bytes:
@@ -374,7 +361,6 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
     image = Image.new("RGB", (img_width, img_height), color=(15, 20, 35))
     draw = ImageDraw.Draw(image)
     
-    # Vẽ các họa tiết đường kẻ lờ mờ nền
     for _ in range(25):
         rx1 = random.randint(0, img_width)
         ry1 = random.randint(0, img_height)
@@ -388,7 +374,6 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
         except IOError:
             font = ImageFont.load_default()
 
-    # Thêm nhiễu nhẹ bằng cách vẽ các đường thẳng ngẫu nhiên
     for _ in range(5):
         x1 = random.randint(0, img_width)
         y1 = random.randint(0, img_height)
@@ -398,7 +383,6 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
 
     text_to_draw = captcha_text
     
-    # Canh giữa chữ trên ảnh
     try:
         bbox = draw.textbbox((0, 0), text_to_draw, font=font)
         text_width = bbox[2] - bbox[0]
@@ -409,7 +393,6 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
     x = (img_width - text_width) // 2
     y = (img_height - text_height) // 2 - 5
 
-    # Vẽ chữ màu vàng đặc trưng
     draw.text((x, y), text_to_draw, fill=(255, 204, 51), font=font)
 
     bio = io.BytesIO()
@@ -575,7 +558,6 @@ async def prompt_ip_verification(message_or_bot, user_id):
 # GỬI CAPTCHA VÀ XỬ LÝ TIMEOUT
 # ============================================================
 async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int, message_text="", is_retry=False):
-    # Nếu là retry, tăng số lần thử lại
     if is_retry:
         if user_id in pending_captcha_users:
             pending_captcha_users[user_id]["retry_count"] += 1
@@ -585,11 +567,9 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     else:
         retry_count = 0
 
-    # Tạo captcha mới
     captcha_text = await asyncio.to_thread(generate_random_captcha)
     img_bytes = await asyncio.to_thread(generate_captcha_image_bytes, captcha_text)
     
-    # Lưu trạng thái
     pending_captcha_users[user_id] = {
         "answer": captcha_text,
         "attempts": 3,
@@ -627,23 +607,18 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     if sent_msg:
         pending_captcha_users[user_id]["message_id"] = sent_msg.message_id
     
-    # Tạo task kiểm tra timeout
     asyncio.create_task(captcha_timeout_checker(context, user_id, sent_msg.message_id))
 
 async def captcha_timeout_checker(context: ContextTypes.DEFAULT_TYPE, user_id: int, message_id: int):
-    """Kiểm tra timeout 60s cho captcha."""
     await asyncio.sleep(60)
     if user_id not in pending_captcha_users:
         return
     
     data = pending_captcha_users[user_id]
     if data["message_id"] != message_id:
-        # Đã có captcha mới, bỏ qua
         return
     
-    # Hết 60s
     if data["retry_count"] >= 3:
-        # Đã thử lại quá 3 lần, khóa tài khoản
         await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user_id,), commit=True)
         pending_captcha_users.pop(user_id, None)
         try:
@@ -661,32 +636,26 @@ async def captcha_timeout_checker(context: ContextTypes.DEFAULT_TYPE, user_id: i
             pass
         return
     
-    # Gửi lại captcha mới
     try:
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"{E['REFRESH']} <b>Hết thời gian! Đang gửi lại Captcha mới...</b>\n{Lần thử {data['retry_count'] + 1}/3}",
+            text=f"{E['REFRESH']} <b>Hết thời gian! Đang gửi lại Captcha mới...</b>\nLần thử {data['retry_count'] + 1}/3",
             parse_mode="HTML"
         )
-        # Xóa tin nhắn cũ nếu có
         try:
             await context.bot.delete_message(chat_id=user_id, message_id=message_id)
         except Exception:
             pass
-        
-        # Gửi captcha mới (retry)
         await send_captcha_challenge(None, context, user_id, message_text="", is_retry=True)
     except Exception as e:
         logger.error(f"Lỗi gửi lại captcha cho {user_id}: {e}")
 
 async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, user_input: str) -> bool:
-    """Xử lý input captcha. Trả về True nếu đã xử lý (thành công hoặc thất bại), False nếu không phải captcha."""
     if user_id not in pending_captcha_users:
         return False
     
     data = pending_captcha_users[user_id]
     
-    # Kiểm tra hết hạn (dự phòng)
     if datetime.now() > data["expires_at"]:
         pending_captcha_users.pop(user_id, None)
         await context.bot.send_message(
@@ -696,24 +665,19 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return True
     
-    # So sánh không phân biệt hoa thường
     if user_input.strip().lower() == data["answer"].lower():
-        # Đúng
         pending_captcha_users.pop(user_id, None)
         await context.bot.send_message(
             chat_id=user_id,
             text=f"{E['CHECK']} <b>Xác minh Captcha thành công!</b>",
             parse_mode="HTML"
         )
-        # Chuyển sang bước tiếp theo (Check Kênh)
         user = update.effective_user
         await proceed_next_verification(update.message, context, user)
         return True
     else:
-        # Sai
         data["attempts"] -= 1
         if data["attempts"] <= 0:
-            # Hết lượt, khóa tài khoản
             await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user_id,), commit=True)
             pending_captcha_users.pop(user_id, None)
             await context.bot.send_message(
@@ -754,7 +718,6 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
 
     # 3. Xác minh CAPTCHA (MỚI - ĐƯA LÊN TRƯỚC CHECK KÊNH)
     if await get_verify_setting("verify_captcha"):
-        # Nếu đang trong quá trình captcha, không gửi lại
         if user_id in pending_captcha_users:
             return
         await send_captcha_challenge(update_or_msg, context, user_id)
@@ -867,7 +830,6 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception: pass
         return
 
-    # Nếu đã tham gia đủ kênh -> Sang Captcha
     if await get_verify_setting("verify_captcha"):
         try: await query.delete_message()
         except Exception: pass
@@ -1044,7 +1006,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message or not user: return
     if update.effective_chat.type != "private": return
 
-    # Xử lý input Captcha (nếu đang trong phiên)
     if user.id in pending_captcha_users:
         user_input = (message.text or "").strip()
         if await handle_captcha_input(update, context, user.id, user_input):
