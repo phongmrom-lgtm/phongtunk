@@ -42,15 +42,12 @@ from telegram.ext import (
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
-# Đường dẫn Mini App Check IP đã deploy trên GitHub Pages
 MINI_APP_URL = os.getenv("MINI_APP_URL", "https://phongmrom-lgtm.github.io/phongtunk/").strip()
 
-# Danh sách ID Admin
 ADMIN_IDS = [5633649201]
 
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Kênh/Nhóm BẮT BỘC kiểm tra tham gia
 REQUIRED_CHECK_CHANNELS = [
     "@khuyenmaionline",
     "@sanhugame",
@@ -65,14 +62,13 @@ REQUIRED_CHECK_CHANNELS = [
     "https://t.me/conmuamenmenl",
 ]
 
-# Kênh hiển thị thêm KHÔNG kiểm tra tham gia
 OPTIONAL_DISPLAY_CHANNELS = []
 
 SUPPORT_GROUP = "https://t.me/hocviencbm"
 
-CODE_PRICE = 2000     # Giá mua code cố định: 2,000đ
-MIN_WITHDRAW = 2000   # Min rút tối thiểu tương ứng giá code
-MAX_WITHDRAW = 10000  # Min rút tối đa
+CODE_PRICE = 2000
+MIN_WITHDRAW = 2000
+MAX_WITHDRAW = 10000
 REFERRAL_REWARD = 1000
 
 
@@ -86,7 +82,7 @@ E = {
     "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️</tg-emoji>',
     "CAR_RED": '<tg-emoji emoji-id="5240037474679398914">🚘</tg-emoji>',
     "BANANA": '<tg-emoji emoji-id="5242466828441099349">🍌</tg-emoji>',
-    "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
+    "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️️</tg-emoji>',
     "CARD": '<tg-emoji emoji-id="5240066289614987080">💳</tg-emoji>',
     "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡</tg-emoji>',
@@ -159,7 +155,6 @@ E = {
     "SWORD": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "POOP": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
     
-    # Emoji số thứ tự tùy chỉnh theo yêu cầu
     "NUM_1": '<tg-emoji emoji-id="5305763715692377402">1️⃣</tg-emoji>',
     "NUM_2": '<tg-emoji emoji-id="5307907239380528763">2️⃣</tg-emoji>',
     "NUM_3": '<tg-emoji emoji-id="5859438077352612949">3️⃣</tg-emoji>',
@@ -178,6 +173,7 @@ TEMP_BAN_MINUTES = 2
 user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
+pending_captcha_users = {} # Lưu state chờ người dùng nhập kết quả phép tính captcha thủ công
 
 
 # ============================================================
@@ -430,35 +426,34 @@ async def is_maintenance():
 
 
 # ============================================================
-# CAPTCHA ĐỘNG
+# CAPTCHA ĐỘNG (NHẬP CHỮ SỐ / PHÉP TÍNH THỦ CÔNG)
 # ============================================================
 
-def generate_captcha():
-    op = random.choice(["+", "-", "*"])
-    if op == "+":
-        a = random.randint(5, 50)
-        b = random.randint(5, 50)
-        correct_ans = a + b
-    elif op == "-":
-        a = random.randint(20, 80)
-        b = random.randint(1, a)
-        correct_ans = a - b
-    else:
-        a = random.randint(2, 12)
-        b = random.randint(2, 12)
-        correct_ans = a * b
-
-    expr_str = f"{a} {op} {b}"
-    options = {correct_ans}
+def generate_text_captcha():
+    """Tạo biểu thức phép tính ngẫu nhiên phức tạp hơn cho phần xác minh chữ số"""
+    ops = ["+", "-", "*"]
+    op1 = random.choice(ops)
+    op2 = random.choice(ops)
     
-    while len(options) < 4:
-        wrong = correct_ans + random.choice([-10, -5, -2, -1, 1, 2, 5, 10, 15])
-        if wrong >= 0 and wrong != correct_ans:
-            options.add(wrong)
-
-    opts_list = list(options)
-    random.shuffle(opts_list)
-    return expr_str, correct_ans, opts_list
+    if op2 == "*":
+        a = random.randint(2, 9)
+        b = random.randint(2, 9)
+        c = random.randint(1, 10)
+        # Thực hiện ưu tiên nhân trước nếu cần hoặc cấu trúc đơn giản: a + b * c
+        expr_str = f"{a} {op1} {b} {op2} {c}"
+        correct_ans = int(eval(expr_str))
+    else:
+        a = random.randint(5, 50)
+        b = random.randint(1, 20)
+        c = random.randint(1, 15)
+        expr_str = f"{a} {op1} {b} {op2} {c}"
+        try:
+            correct_ans = int(eval(expr_str))
+        except Exception:
+            correct_ans = a + b - c
+            expr_str = f"{a} + {b} - {c}"
+            
+    return expr_str, correct_ans
 
 
 # ============================================================
@@ -511,7 +506,7 @@ def build_channel_buttons(missing_channels):
             InlineKeyboardButton(f"{E['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=channel_url)
         ])
     buttons.append([
-        InlineKeyboardButton("❇️ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")
+        InlineKeyboardButton("❇️️ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")
     ])
     return buttons
 
@@ -697,7 +692,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
                 return
 
     if await get_verify_setting("verify_captcha"):
-        await send_captcha_challenge(update_or_msg, context)
+        await send_text_captcha_challenge(update_or_msg, context, user_id)
         return
 
     await finalize_user_registration(user, context)
@@ -775,41 +770,31 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# GỬI CAPTCHA
+# GỬI & XỬ LÝ CAPTCHA DẠNG NHẬP CHỮ SỐ / PHÉP TÍNH THỦ CÔNG
 # ============================================================
 
-async def send_captcha_challenge(update_or_query, context: ContextTypes.DEFAULT_TYPE, message_text=""):
-    expr_str, correct_ans, options = generate_captcha()
-    context.user_data["captcha_ans"] = correct_ans
-    buttons = []
-    row = []
-    for opt in options:
-        row.append(InlineKeyboardButton(f"🔹 {opt}", callback_data=f"captcha_{opt}"))
-        if len(row) == 2:
-            buttons.append(row)
-            row = []
-    if row:
-        buttons.append(row)
+async def send_text_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int, message_text=""):
+    expr_str, correct_ans = generate_text_captcha()
+    
+    # Lưu đáp án và số lần thử (3 lần) vào bộ nhớ tạm
+    pending_captcha_users[user_id] = {
+        "ans": correct_ans,
+        "attempts": 3
+    }
+    
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
         f"{E['ROCK']} <b>XÁC MINH CAPTCHA BẢO MẬT</b>\n"
-        f"{E['POINT_RIGHT']} Vui lòng giải phép tính bên dưới để hoàn tất xác minh:\n"
-        f"{E['BANDAGE']} <b>{expr_str} = ?</b>"
+        f"Nhập mã hoặc giải phép tính trong ảnh/tin nhắn.\n"
+        f"⏳ <b>300 giây</b>\n"
+        f"{E['CHECK']} <b>Còn 3 lần thử</b>\n\n"
+        f"📌 Vui lòng nhắn trực tiếp kết quả của phép tính: <b>{expr_str} = ?</b> vào khung chat bên dưới để tiếp tục."
     )
-    if hasattr(update_or_query, "edit_message_text"):
-        await update_or_query.edit_message_text(
-            caption,
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML",
-        )
+    
+    if hasattr(update_or_msg, "reply_text"):
+        await update_or_msg.reply_text(caption, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
     else:
-        target_id = update_or_query.from_user.id if hasattr(update_or_query, "from_user") else update_or_query.chat.id
-        await context.bot.send_message(
-            chat_id=target_id,
-            text=caption,
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode="HTML",
-        )
+        await context.bot.send_message(chat_id=user_id, text=caption, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
 
 
 async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -847,7 +832,11 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     if await get_verify_setting("verify_captcha"):
-        await send_captcha_challenge(query, context)
+        try:
+            await query.delete_message()
+        except Exception:
+            pass
+        await send_text_captcha_challenge(query.message, context, user.id)
     else:
         try:
             await query.delete_message()
@@ -943,7 +932,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
             return
 
-        # Kiểm tra xem IP này có trùng với tài khoản KHÁC không (nếu khác IP cũ mới kiểm tra trùng)
         current_user_db = await db_query("SELECT ip_address FROM users WHERE user_id=%s", (user.id,), fetchone=True)
         old_user_ip = current_user_db[0] if current_user_db else None
 
@@ -986,38 +974,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as exc:
         logger.exception("Lỗi khi xử lý dữ liệu từ MiniApp: %s", exc)
         await message.reply_text(f"{E['CROSS']} Có lỗi xảy ra trong quá trình xác minh IP.", parse_mode="HTML")
-
-
-async def captcha_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    if not query:
-        return
-    user = query.from_user
-    data = query.data or ""
-    try:
-        selected_ans = int(data.split("_")[1])
-    except (IndexError, ValueError):
-        return
-    correct_ans = context.user_data.get("captcha_ans")
-    if selected_ans != correct_ans:
-        try:
-            await query.answer("Phép tính sai! Vui lòng thử lại.", show_alert=True)
-        except Exception:
-            pass
-        await send_captcha_challenge(
-            query,
-            context,
-            message_text=f"{E['THERMOMETER']} <b>Bạn đã chọn sai kết quả! Vui lòng tính lại.</b>",
-        )
-        return
-    context.user_data.pop("captcha_ans", None)
-    try:
-        await query.answer("Xác minh CAPTCHA thành công!")
-        await query.delete_message()
-    except Exception:
-        pass
-
-    await finalize_user_registration(user, context)
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
@@ -1094,6 +1050,37 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if update.effective_chat.type != "private":
         return
+        
+    # Xử lý nếu người dùng đang trong phiên nhập Captcha thủ công
+    if user.id in pending_captcha_users:
+        user_input = (message.text or "").strip()
+        captcha_data = pending_captcha_users[user.id]
+        
+        try:
+            val_input = int(user_input)
+        except ValueError:
+            captcha_data["attempts"] -= 1
+            if captcha_data["attempts"] <= 0:
+                pending_captcha_users.pop(user.id, None)
+                await message.reply_text(f"{E['CROSS']} <b>Bạn đã nhập sai quá số lần cho phép. Vui lòng bấm /start để làm lại!</b>", parse_mode="HTML")
+                return
+            await message.reply_text(f"{E['DISLIKE']} <b>Sai định dạng hoặc kết quả!</b> Vui lòng nhập số nguyên kết quả phép tính. Bạn còn <b>{captcha_data['attempts']}</b> lần thử.", parse_mode="HTML")
+            return
+            
+        if val_input == captcha_data["ans"]:
+            pending_captcha_users.pop(user.id, None)
+            await message.reply_text(f"{E['CHECK']} <b>Xác minh Captcha thành công!</b>", parse_mode="HTML")
+            await finalize_user_registration(user, context)
+            return
+        else:
+            captcha_data["attempts"] -= 1
+            if captcha_data["attempts"] <= 0:
+                pending_captcha_users.pop(user.id, None)
+                await message.reply_text(f"{E['CROSS']} <b>Bạn đã nhập sai quá số lần cho phép. Vui lòng bấm /start để làm lại!</b>", parse_mode="HTML")
+                return
+            await message.reply_text(f"{E['DISLIKE']} <b>Kết quả không chính xác!</b> Còn lại <b>{captcha_data['attempts']}</b> lần thử.", parse_mode="HTML")
+            return
+
     db_user = await ensure_user_exists(update)
     user_withdraw_state.pop(user.id, None)
     if await is_maintenance() and user.id not in ADMIN_IDS:
@@ -1522,7 +1509,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
 
-        # LỆNH /xoatb (Xóa toàn bộ kho code)
         elif cmd in ("/xoatb", "/xoacodeall"):
             def clear_all_codes(cursor):
                 cursor.execute("SELECT code_val FROM code_stock")
@@ -1663,9 +1649,53 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             await message.reply_text(msg, parse_mode="HTML")
 
-        elif cmd == "/checkbb":
+        # LỆNH /lsfull id (Kiểm tra full tất cả giao dịch, không thiếu 1 thứ gì, tự động chia dòng tele)
+        elif cmd == "/lsfull":
             if not args:
-                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/checkbb ID_USER</code>", parse_mode="HTML")
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/lsfull ID_USER</code>", parse_mode="HTML")
+                return
+            try:
+                target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} ID không hợp lệ!", parse_mode="HTML")
+                return
+
+            txs = await db_query(
+                "SELECT id, type, amount, status, created_at, details FROM transactions WHERE user_id=%s ORDER BY id DESC",
+                (target_id,),
+                fetchall=True
+            )
+            if not txs:
+                await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> không có lịch sử giao dịch nào.", parse_mode="HTML")
+                return
+
+            header = f"{E['ROCK']} <b>FULL LỊCH SỬ GIAO DỊCH ID:</b> <code>{target_id}</code> (Tổng: {len(txs)} giao dịch)\n━━━━━━━━━━━━━━━━━━\n\n"
+            chunks = [header]
+            current_chunk_idx = 0
+
+            for tx_id, tx_type, amount, status, created_at, details in txs:
+                icon = E['CHECK'] if status == "Thành công" else E['CROSS']
+                line = (
+                    f"{icon} <b>Mã GD:</b> #{tx_id} | <b>Loại:</b> {tx_type}\n"
+                    f"{E['MONEY']} <b>Số tiền:</b> <code>{amount:,}đ</code> | <b>Trạng thái:</b> {status}\n"
+                    f"{E['SHIELD']} <b>Chi tiết:</b> <code>{details or 'Không có'}</code>\n"
+                    f"{E['LIGHTNING']} <b>Thời gian:</b> <code>{created_at}</code>\n"
+                    "----------------------------------\n"
+                )
+                if len(chunks[current_chunk_idx]) + len(line) > 3900:
+                    chunks.append(line)
+                    current_chunk_idx += 1
+                else:
+                    chunks[current_chunk_idx] += line
+
+            for chunk_content in chunks:
+                await message.reply_text(chunk_content, parse_mode="HTML")
+                await asyncio.sleep(0.3)
+
+        # SỬA LỆNH /checkbb và /bb (Hiển thị tổng số bạn bè, full @name, full thông tin, tự động ngắt dòng telegram)
+        elif cmd in ("/checkbb", "/bb"):
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/bb ID_USER</code> hoặc <code>/checkbb ID_USER</code>", parse_mode="HTML")
                 return
             try:
                 target_id = int(args[0])
@@ -1682,38 +1712,53 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> chưa mời được bạn bè nào.", parse_mode="HTML")
                 return
 
-            msg = f"{E['TOP']} <b>DANH SÁCH BẠN BÈ MỜI BỞI ID:</b> <code>{target_id}</code> (Tổng: {len(invited)})\n━━━━━━━━━━━━━━━━━━\n\n"
-            buttons = []
+            total_invited = len(invited)
+            header = f"{E['TOP']} <b>DANH SÁCH BẠN BÈ MỜI BỞI ID:</b> <code>{target_id}</code>\n{E['LIKE']} <b>Tổng số bạn bè mời:</b> <code>{total_invited:,}</code> người\n━━━━━━━━━━━━━━━━━━\n\n"
+            
+            chunks = [header]
+            current_chunk_idx = 0
+            all_buttons = []
             row = []
 
             for u_id, username, joined_at, phone, ip_addr in invited:
                 uname_str = f"@{username}" if username else "Không có @username"
                 phone_str = phone if phone else "Chưa xác minh SĐT"
                 ip_str = ip_addr if ip_addr else "Chưa xác minh IP"
+                joined_str = joined_at if joined_at else "Không rõ"
                 
-                msg += (
-                    f"{E['CROWN']} <b>Tài khoản:</b> {uname_str}\n"
+                line = (
+                    f"{E['CROWN']} <b>Full @name:</b> {uname_str}\n"
                     f"{E['PLUS']} <b>ID:</b> <code>{u_id}</code>\n"
                     f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
                     f"🌐 <b>IP:</b> <code>{ip_str}</code>\n"
-                    f"{E['LIGHTNING']} <b>Ngày tham gia:</b> <code>{joined_at}</code>\n"
+                    f"{E['LIGHTNING']} <b>Ngày tham gia:</b> <code>{joined_str}</code>\n"
                     "----------------------------------\n"
                 )
 
+                if len(chunks[current_chunk_idx]) + len(line) > 3800:
+                    chunks.append(line)
+                    current_chunk_idx += 1
+                else:
+                    chunks[current_chunk_idx] += line
+
                 row.append(InlineKeyboardButton(f"🆔 {u_id}", url=f"tg://user?id={u_id}"))
                 if len(row) == 2:
-                    buttons.append(row)
+                    all_buttons.append(row)
                     row = []
 
             if row:
-                buttons.append(row)
+                all_buttons.append(row)
 
-            await message.reply_text(
-                msg,
-                reply_markup=InlineKeyboardMarkup(buttons) if buttons else None,
-                parse_mode="HTML",
-                disable_web_page_preview=True
-            )
+            # Gửi từng phần nếu quá dòng telegram cho phép, đính kèm nút ở đoạn cuối cùng
+            for idx, chunk_content in enumerate(chunks):
+                markup = InlineKeyboardMarkup(all_buttons) if (idx == len(chunks) - 1 and all_buttons) else None
+                await message.reply_text(
+                    chunk_content,
+                    reply_markup=markup,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True
+                )
+                await asyncio.sleep(0.3)
 
         elif cmd == "/addcode":
             lines = raw_text.split(maxsplit=1)
@@ -1823,6 +1868,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_msg_tracker.clear()
             temp_bans.clear()
             user_withdraw_state.clear()
+            pending_captcha_users.clear()
             await db_query(
                 "INSERT INTO users (user_id, username, balance, joined_at) VALUES (%s, %s, 0, %s) ON CONFLICT (user_id) DO NOTHING",
                 (message.from_user.id, message.from_user.username or "", get_now_str()),
@@ -2040,7 +2086,6 @@ def main():
     
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
-    app.add_handler(CallbackQueryHandler(captcha_callback, pattern=r"^captcha_\d+$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
     
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
@@ -2048,7 +2093,7 @@ def main():
 
     admin_cmds = [
         "addcode", "dscode", "xoatb", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
-        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "dl", "bo", "moip"
+        "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
