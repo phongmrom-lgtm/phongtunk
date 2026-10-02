@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import os
 import random
@@ -12,6 +13,7 @@ import psycopg
 from psycopg.rows import tuple_row
 from psycopg_pool import ConnectionPool
 import pytz
+from PIL import Image, ImageDraw, ImageFont
 
 load_dotenv()
 
@@ -82,7 +84,7 @@ E = {
     "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️</tg-emoji>',
     "CAR_RED": '<tg-emoji emoji-id="5240037474679398914">🚘</tg-emoji>',
     "BANANA": '<tg-emoji emoji-id="5242466828441099349">🍌</tg-emoji>',
-    "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨️️</tg-emoji>',
+    "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨</tg-emoji>',
     "CARD": '<tg-emoji emoji-id="5240066289614987080">💳</tg-emoji>',
     "GUN": '<tg-emoji emoji-id="5235762367312173706">🔫</tg-emoji>',
     "LIGHTNING": '<tg-emoji emoji-id="5456140674028019486">⚡</tg-emoji>',
@@ -94,7 +96,7 @@ E = {
     "MONEY_FLY": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
     "MONEY_BAG": '<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>',
     "RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
-    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️️</tg-emoji>',
     "FIRE": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
     "BOOM": '<tg-emoji emoji-id="5276032951342088188">💥</tg-emoji>',
     "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
@@ -173,7 +175,7 @@ TEMP_BAN_MINUTES = 2
 user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
-pending_captcha_users = {} # Lưu state chờ người dùng nhập kết quả phép tính captcha thủ công
+pending_captcha_users = {}
 
 
 # ============================================================
@@ -426,11 +428,53 @@ async def is_maintenance():
 
 
 # ============================================================
-# CAPTCHA ĐỘNG (NHẬP CHỮ SỐ / PHÉP TÍNH THỦ CÔNG)
+# HÀM TẠO ẢNH CAPTCHA PHÉP TÍNH (GIỐNG ẢNH MẪU)
 # ============================================================
 
+def generate_captcha_image_bytes(expr_str: str) -> bytes:
+    """Tự động vẽ ảnh chứa phép tính màu vàng nền tối giống hệt ảnh mẫu"""
+    img_width, img_height = 400, 160
+    image = Image.new("RGB", (img_width, img_height), color=(15, 20, 35))
+    draw = ImageDraw.Draw(image)
+    
+    # Vẽ các họa tiết đường kẻ lờ mờ nền sao trời/không gian cho đẹp mắt
+    for _ in range(25):
+        rx1 = random.randint(0, img_width)
+        ry1 = random.randint(0, img_height)
+        draw.point((rx1, ry1), fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)))
+
+    try:
+        # Cố gắng sử dụng font hệ thống, nếu không có sẽ dùng font mặc định
+        font = ImageFont.truetype("arial.ttf", 46)
+    except IOError:
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 46)
+        except IOError:
+            font = ImageFont.load_default()
+
+    text_to_draw = f"{expr_str} = ?"
+    
+    # Canh giữa chữ trên ảnh
+    try:
+        bbox = draw.textbbox((0, 0), text_to_draw, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+    except AttributeError:
+        text_width, text_height = 200, 50
+
+    x = (img_width - text_width) // 2
+    y = (img_height - text_height) // 2 - 5
+
+    # Vẽ chữ màu vàng đặc trưng
+    draw.text((x, y), text_to_draw, fill=(255, 204, 51), font=font)
+
+    bio = io.BytesIO()
+    image.save(bio, format="PNG")
+    bio.seek(0)
+    return bio.getvalue()
+
+
 def generate_text_captcha():
-    """Tạo biểu thức phép tính ngẫu nhiên phức tạp hơn cho phần xác minh chữ số"""
     ops = ["+", "-", "*"]
     op1 = random.choice(ops)
     op2 = random.choice(ops)
@@ -439,7 +483,6 @@ def generate_text_captcha():
         a = random.randint(2, 9)
         b = random.randint(2, 9)
         c = random.randint(1, 10)
-        # Thực hiện ưu tiên nhân trước nếu cần hoặc cấu trúc đơn giản: a + b * c
         expr_str = f"{a} {op1} {b} {op2} {c}"
         correct_ans = int(eval(expr_str))
     else:
@@ -506,7 +549,7 @@ def build_channel_buttons(missing_channels):
             InlineKeyboardButton(f"{E['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=channel_url)
         ])
     buttons.append([
-        InlineKeyboardButton("❇️️ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")
+        InlineKeyboardButton("❇ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")
     ])
     return buttons
 
@@ -692,7 +735,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
                 return
 
     if await get_verify_setting("verify_captcha"):
-        await send_text_captcha_challenge(update_or_msg, context, user_id)
+        await send_image_captcha_challenge(update_or_msg, context, user_id)
         return
 
     await finalize_user_registration(user, context)
@@ -770,31 +813,43 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# GỬI & XỬ LÝ CAPTCHA DẠNG NHẬP CHỮ SỐ / PHÉP TÍNH THỦ CÔNG
+# GỬI CAPTCHA DẠNG ẢNH ĐỒ HỌA
 # ============================================================
 
-async def send_text_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int, message_text=""):
+async def send_image_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int, message_text=""):
     expr_str, correct_ans = generate_text_captcha()
     
-    # Lưu đáp án và số lần thử (3 lần) vào bộ nhớ tạm
     pending_captcha_users[user_id] = {
         "ans": correct_ans,
         "attempts": 3
     }
     
+    # Tạo ảnh captcha dạng bytes
+    img_bytes = generate_image_captcha_bytes = await asyncio.to_thread(generate_captcha_image_bytes, expr_str)
+    
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
-        f"{E['ROCK']} <b>XÁC MINH CAPTCHA BẢO MẬT</b>\n"
-        f"Nhập mã hoặc giải phép tính trong ảnh/tin nhắn.\n"
+        f"🛡 <b>XÁC MINH CAPTCHA</b>\n\n"
+        f"Nhập mã trong ảnh.\n"
         f"⏳ <b>300 giây</b>\n"
-        f"{E['CHECK']} <b>Còn 3 lần thử</b>\n\n"
-        f"📌 Vui lòng nhắn trực tiếp kết quả của phép tính: <b>{expr_str} = ?</b> vào khung chat bên dưới để tiếp tục."
+        f"✔️ <b>Còn 3 lần thử</b>"
     )
     
-    if hasattr(update_or_msg, "reply_text"):
-        await update_or_msg.reply_text(caption, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+    if hasattr(update_or_msg, "reply_photo"):
+        await update_or_msg.reply_photo(
+            photo=img_bytes,
+            caption=caption,
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove()
+        )
     else:
-        await context.bot.send_message(chat_id=user_id, text=caption, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await context.bot.send_photo(
+            chat_id=user_id,
+            photo=img_bytes,
+            caption=caption,
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove()
+        )
 
 
 async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -836,7 +891,7 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.delete_message()
         except Exception:
             pass
-        await send_text_captcha_challenge(query.message, context, user.id)
+        await send_image_captcha_challenge(query.message, context, user.id)
     else:
         try:
             await query.delete_message()
@@ -1051,7 +1106,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
         
-    # Xử lý nếu người dùng đang trong phiên nhập Captcha thủ công
+    # Xử lý nếu người dùng đang trong phiên nhập Captcha bằng hình ảnh
     if user.id in pending_captcha_users:
         user_input = (message.text or "").strip()
         captcha_data = pending_captcha_users[user.id]
@@ -1649,7 +1704,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             await message.reply_text(msg, parse_mode="HTML")
 
-        # LỆNH /lsfull id (Kiểm tra full tất cả giao dịch, không thiếu 1 thứ gì, tự động chia dòng tele)
         elif cmd == "/lsfull":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/lsfull ID_USER</code>", parse_mode="HTML")
@@ -1692,7 +1746,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(chunk_content, parse_mode="HTML")
                 await asyncio.sleep(0.3)
 
-        # SỬA LỆNH /checkbb và /bb (Hiển thị tổng số bạn bè, full @name, full thông tin, tự động ngắt dòng telegram)
         elif cmd in ("/checkbb", "/bb"):
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/bb ID_USER</code> hoặc <code>/checkbb ID_USER</code>", parse_mode="HTML")
@@ -1749,7 +1802,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if row:
                 all_buttons.append(row)
 
-            # Gửi từng phần nếu quá dòng telegram cho phép, đính kèm nút ở đoạn cuối cùng
             for idx, chunk_content in enumerate(chunks):
                 markup = InlineKeyboardMarkup(all_buttons) if (idx == len(chunks) - 1 and all_buttons) else None
                 await message.reply_text(
@@ -2101,7 +2153,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
 
-    logger.info("🤖 Bot đang chạy...")
+    logger.info("🤖 Bot chạy thành công với Captcha đồ họa...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
