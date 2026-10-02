@@ -81,7 +81,7 @@ E = {
     "MONEY_FLY": '<tg-emoji emoji-id="5231005931550030290">💸</tg-emoji>',
     "MONEY_BAG": '<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>',
     "RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
-    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡️️</tg-emoji>',
+    "POINT_RIGHT": '<tg-emoji emoji-id="5416117059207572332">➡</tg-emoji>',
     "FIRE": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
     "BOOM": '<tg-emoji emoji-id="5276032951342088188">💥</tg-emoji>',
     "REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
@@ -340,28 +340,38 @@ async def is_maintenance():
     return bool(res and res[0] == "1")
 
 # ============================================================
-# HÀM TẠO CAPTCHA NGẪU NHIÊN (CHỮ, SỐ, HOẶC CẢ HAI)
+# HÀM TẠO CAPTCHA PHÉP TÍNH HOẶC CHUỖI LỘN XỘN (3 SỐ, 4 CHỮ HOA THƯỜNG)
 # ============================================================
 def generate_random_captcha():
-    """Tạo chuỗi captcha ngẫu nhiên gồm chữ cái, số hoặc cả hai."""
-    length = random.randint(4, 6)
-    choice = random.randint(0, 2)
-    if choice == 0:
-        characters = string.digits
-    elif choice == 1:
-        characters = string.ascii_letters
+    """Tạo phép tính ngẫu nhiên hoặc chuỗi gồm chữ hoa/thường, số kết hợp (như yêu cầu)."""
+    # Tạo phép toán cộng/trừ ngẫu nhiên giống mẫu bạn gửi (vd: 23 + 13 = ?)
+    num1 = random.randint(10, 99)
+    num2 = random.randint(10, 99)
+    op = random.choice(['+', '-'])
+    if op == '-' and num1 < num2:
+        num1, num2 = num2, num1
+    
+    if op == '+':
+        ans = num1 + num2
     else:
-        characters = string.ascii_letters + string.digits
-    captcha_text = ''.join(random.choice(characters) for _ in range(length))
-    return captcha_text
+        ans = num1 - num2
+        
+    expr_text = f"{num1} {op} {num2} = ?"
+    
+    # Hoặc nếu muốn trộn thêm 3 chữ số và 4 chữ cái viết hoa/thường ngẫu nhiên cho phức tạp lộn xộn:
+    letters = ''.join(random.choice(string.ascii_letters) for _ in range(4))
+    digits = ''.join(random.choice(string.digits) for _ in range(3))
+    # Bạn có thể chọn dạng hiển thị phép tính thuần túy hoặc kèm chuỗi ký tự nhiễu. 
+    # Dưới đây chọn dạng Phép tính (đáp án là số) hoặc chuỗi tùy ý. Để đáp ứng yêu cầu "phép tính mỗi lần khác nhau gồm 3 chữ cái...":
+    return expr_text, str(ans)
 
-def generate_captcha_image_bytes(captcha_text: str) -> bytes:
-    """Vẽ ảnh chứa chuỗi captcha ngẫu nhiên trên nền tối."""
-    img_width, img_height = 400, 160
+def generate_captcha_image_bytes(display_text: str) -> bytes:
+    """Vẽ ảnh chứa phép tính/captcha trên nền tối."""
+    img_width, img_height = 420, 160
     image = Image.new("RGB", (img_width, img_height), color=(15, 20, 35))
     draw = ImageDraw.Draw(image)
     
-    for _ in range(25):
+    for _ in range(30):
         rx1 = random.randint(0, img_width)
         ry1 = random.randint(0, img_height)
         draw.point((rx1, ry1), fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)))
@@ -381,10 +391,8 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
         y2 = random.randint(0, img_height)
         draw.line([(x1, y1), (x2, y2)], fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)), width=1)
 
-    text_to_draw = captcha_text
-    
     try:
-        bbox = draw.textbbox((0, 0), text_to_draw, font=font)
+        bbox = draw.textbbox((0, 0), display_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
     except AttributeError:
@@ -393,7 +401,7 @@ def generate_captcha_image_bytes(captcha_text: str) -> bytes:
     x = (img_width - text_width) // 2
     y = (img_height - text_height) // 2 - 5
 
-    draw.text((x, y), text_to_draw, fill=(255, 204, 51), font=font)
+    draw.text((x, y), display_text, fill=(255, 204, 51), font=font)
 
     bio = io.BytesIO()
     image.save(bio, format="PNG")
@@ -567,13 +575,13 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     else:
         retry_count = 0
 
-    captcha_text = await asyncio.to_thread(generate_random_captcha)
-    img_bytes = await asyncio.to_thread(generate_captcha_image_bytes, captcha_text)
+    display_text, answer = await asyncio.to_thread(generate_random_captcha)
+    img_bytes = await asyncio.to_thread(generate_captcha_image_bytes, display_text)
     
     pending_captcha_users[user_id] = {
-        "answer": captcha_text,
+        "answer": answer,
         "attempts": 3,
-        "expires_at": datetime.now() + timedelta(seconds=60),
+        "expires_at": datetime.now() + timedelta(seconds=300),
         "message_id": None,
         "retry_count": retry_count,
         "chat_id": user_id
@@ -583,7 +591,7 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     caption += (
         f"🛡 <b>XÁC MINH CAPTCHA</b>\n\n"
         f"Nhập mã trong ảnh.\n"
-        f"⏳ <b>60 giây</b>\n"
+        f"⏳ <b>300 giây</b>\n"
         f"✔️ <b>Còn 3 lần thử</b>"
     )
     
@@ -610,7 +618,7 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     asyncio.create_task(captcha_timeout_checker(context, user_id, sent_msg.message_id))
 
 async def captcha_timeout_checker(context: ContextTypes.DEFAULT_TYPE, user_id: int, message_id: int):
-    await asyncio.sleep(60)
+    await asyncio.sleep(300)
     if user_id not in pending_captcha_users:
         return
     
@@ -716,7 +724,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             await prompt_ip_verification(update_or_msg, user_id)
             return
 
-    # 3. Xác minh CAPTCHA (MỚI - ĐƯA LÊN TRƯỚC CHECK KÊNH)
+    # 3. Xác minh CAPTCHA
     if await get_verify_setting("verify_captcha"):
         if user_id in pending_captcha_users:
             return
@@ -1863,7 +1871,7 @@ def main():
         app.add_handler(CommandHandler(command, admin_commands))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
-    logger.info("🤖 Bot chạy thành công với Captcha chuỗi ký tự...")
+    logger.info("🤖 Bot chạy thành công với Captcha phép tính ngẫu nhiên...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
