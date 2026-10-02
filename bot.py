@@ -90,7 +90,7 @@ E = {
     "PIN": '<tg-emoji emoji-id="5391032818111363540">📍</tg-emoji>',
     "SOON": '<tg-emoji emoji-id="5440621591387980068">🔜</tg-emoji>',
     "CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
-    "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉️️</tg-emoji>',
+    "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
     "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
@@ -232,6 +232,7 @@ def _init_db_sync():
             """)
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS skip_ip INTEGER DEFAULT 0;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS captcha_verified INTEGER DEFAULT 0;")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS transactions (
                     id BIGSERIAL PRIMARY KEY,
@@ -276,20 +277,6 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock ON code_stock(type_code, is_used)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_address)")
-            cursor.execute("""
-                DELETE FROM transactions t1
-                USING transactions t2
-                WHERE t1.id > t2.id
-                  AND t1.user_id = t2.user_id
-                  AND t1.details = t2.details
-                  AND t1.type = 'Thưởng Mời Bạn'
-                  AND t2.type = 'Thưởng Mời Bạn';
-            """)
-            cursor.execute("""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_ref_reward 
-                ON transactions(user_id, details) 
-                WHERE type='Thưởng Mời Bạn'
-            """)
         conn.commit()
         logger.info("Database PostgreSQL đã sẵn sàng.")
 
@@ -340,54 +327,45 @@ async def is_maintenance():
     return bool(res and res[0] == "1")
 
 # ============================================================
-# HÀM TẠO CAPTCHA PHÉP TÍNH HOẶC CHUỖI LỘN XỘN (3 SỐ, 4 CHỮ HOA THƯỜNG)
+# HÀM TẠO CAPTCHA 9 KÝ TỰ CHỮ VÀ SỐ (VIẾT HOA, VIẾT THƯỜNG)
 # ============================================================
 def generate_random_captcha():
-    num1 = random.randint(10, 99)
-    num2 = random.randint(10, 99)
-    op = random.choice(['+', '-'])
-    if op == '-' and num1 < num2:
-        num1, num2 = num2, num1
-    
-    if op == '+':
-        ans = num1 + num2
-    else:
-        ans = num1 - num2
-        
-    expr_text = f"{num1} {op} {num2} = ?"
-    return expr_text, str(ans)
+    """Tạo chuỗi ngẫu nhiên gồm 9 ký tự (chữ hoa, chữ thường, số)."""
+    chars = string.ascii_letters + string.digits
+    captcha_text = ''.join(random.choices(chars, k=9))
+    return captcha_text, captcha_text
 
 def generate_captcha_image_bytes(display_text: str) -> bytes:
     img_width, img_height = 420, 160
     image = Image.new("RGB", (img_width, img_height), color=(15, 20, 35))
     draw = ImageDraw.Draw(image)
     
-    for _ in range(30):
+    for _ in range(35):
         rx1 = random.randint(0, img_width)
         ry1 = random.randint(0, img_height)
         draw.point((rx1, ry1), fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)))
 
     try:
-        font = ImageFont.truetype("arial.ttf", 46)
+        font = ImageFont.truetype("arial.ttf", 38)
     except IOError:
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 46)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
         except IOError:
             font = ImageFont.load_default()
 
-    for _ in range(5):
+    for _ in range(6):
         x1 = random.randint(0, img_width)
         y1 = random.randint(0, img_height)
         x2 = random.randint(0, img_width)
         y2 = random.randint(0, img_height)
-        draw.line([(x1, y1), (x2, y2)], fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)), width=1)
+        draw.line([(x1, y1), (x2, y2)], fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)), width=2)
 
     try:
         bbox = draw.textbbox((0, 0), display_text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
     except AttributeError:
-        text_width, text_height = 200, 50
+        text_width, text_height = 250, 40
 
     x = (img_width - text_width) // 2
     y = (img_height - text_height) // 2 - 5
@@ -488,7 +466,7 @@ async def ensure_user_exists(update: Update):
     user = update.effective_user
     if not user: return None
     row = await db_query(
-        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
+        "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip, captcha_verified FROM users WHERE user_id=%s",
         (user.id,), fetchone=True,
     )
     if row:
@@ -500,7 +478,7 @@ async def ensure_user_exists(update: Update):
             (user.id, user.username or "", get_now_str()), commit=True,
         )
         row = await db_query(
-            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
+            "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, phone_number, ip_address, skip_ip, captcha_verified FROM users WHERE user_id=%s",
             (user.id,), fetchone=True,
         )
     return row
@@ -533,6 +511,10 @@ async def check_ip_verified(user_id) -> bool:
     ip_addr, skip_ip = row[0], row[1]
     if skip_ip == 1 or (ip_addr and len(ip_addr.strip()) > 0): return True
     return False
+
+async def check_captcha_verified(user_id) -> bool:
+    row = await db_query("SELECT captcha_verified FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    return bool(row and row[0] == 1)
 
 def get_miniapp_keyboard():
     keyboard = [[KeyboardButton("🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP", web_app=WebAppInfo(url=MINI_APP_URL))]]
@@ -576,8 +558,8 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
-        f"🛡 <b>XÁC MINH CAPTCHA</b>\n\n"
-        f"Nhập mã trong ảnh.\n"
+        f"🛡 <b>XÁC MINH CAPTCHA (9 KÝ TỰ CHỮ & SỐ)</b>\n\n"
+        f"Nhập đúng mã 9 ký tự trong ảnh (phân biệt chữ hoa/thường).\n"
         f"⏳ <b>300 giây</b>\n"
         f"✔️ <b>Còn 3 lần thử</b>"
     )
@@ -660,8 +642,11 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return True
     
-    if user_input.strip().lower() == data["answer"].lower():
+    # Yêu cầu nhập đúng chính xác chữ hoa, chữ thường và số (không dùng .lower())
+    if user_input.strip() == data["answer"]:
         pending_captcha_users.pop(user_id, None)
+        # Đánh dấu đã xác minh captcha thành công vào database để tránh lặp lại
+        await db_query("UPDATE users SET captcha_verified=1 WHERE user_id=%s", (user_id,), commit=True)
         await context.bot.send_message(
             chat_id=user_id,
             text=f"{E['CHECK']} <b>Xác minh Captcha thành công!</b>",
@@ -688,7 +673,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"{E['DISLIKE']} <b>Kết quả không chính xác!</b> Còn lại <b>{data['attempts']}</b> lần thử.",
+                text=f"{E['DISLIKE']} <b>Mã Captcha không chính xác!</b> Còn lại <b>{data['attempts']}</b> lần thử.",
                 parse_mode="HTML"
             )
         return True
@@ -710,10 +695,11 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             return
 
     if await get_verify_setting("verify_captcha"):
-        if user_id in pending_captcha_users:
+        if not await check_captcha_verified(user_id) and user_id not in ADMIN_IDS:
+            if user_id in pending_captcha_users:
+                return
+            await send_captcha_challenge(update_or_msg, context, user_id)
             return
-        await send_captcha_challenge(update_or_msg, context, user_id)
-        return
 
     if await get_verify_setting("verify_channel"):
         if user_id not in ADMIN_IDS:
@@ -756,7 +742,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     db_user = await db_query(
-        "SELECT user_id, is_banned, referrer_id, phone_number, ip_address, skip_ip FROM users WHERE user_id=%s",
+        "SELECT user_id, is_banned, referrer_id, phone_number, ip_address, skip_ip, captcha_verified FROM users WHERE user_id=%s",
         (user.id,), fetchone=True,
     )
 
@@ -820,7 +806,7 @@ async def verify_join_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception: pass
         return
 
-    if await get_verify_setting("verify_captcha"):
+    if await get_verify_setting("verify_captcha") and not await check_captcha_verified(user.id):
         try: await query.delete_message()
         except Exception: pass
         await send_captcha_challenge(query.message, context, user.id)
@@ -1032,9 +1018,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     if await get_verify_setting("verify_captcha"):
-        if user.id not in pending_captcha_users:
-            await send_captcha_challenge(message, context, user.id)
-            return
+        if not await check_captcha_verified(user.id) and user.id not in ADMIN_IDS:
+            if user.id not in pending_captcha_users:
+                await send_captcha_challenge(message, context, user.id)
+                return
 
     if await get_verify_setting("verify_channel"):
         if user.id not in ADMIN_IDS:
@@ -1059,7 +1046,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ip_str = db_user[7] if len(db_user) > 7 and db_user[7] else "Chưa xác minh"
         invited_count = await get_valid_referrals_count(user.id)
         res_withdraw = await db_query(
-            "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=%s AND type LIKE 'Mua Code%%' AND status='Thành công'",
+            "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id=%s and type LIKE 'Mua Code%%' AND status='Thành công'",
             (user.id,), fetchone=True,
         )
         total_withdraw = res_withdraw[0]
@@ -1271,7 +1258,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not query or not is_admin(update): return
     data = query.data or ""
     if data == "admin_verify_all":
-        await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0", commit=True)
+        await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
         try: await query.answer("Đã đặt lại xác minh toàn bộ thành công!", show_alert=True)
         except Exception: pass
         await query.message.reply_text(
@@ -1311,7 +1298,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        # Lệnh /mcall id: Mở tất cả hạn chế hoặc bị khoá cho người đó
         if cmd == "/mcall":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/mcall USER_ID</code>", parse_mode="HTML")
@@ -1322,7 +1308,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             
             await db_query(
-                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1 WHERE user_id=%s",
+                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1, captcha_verified=1 WHERE user_id=%s",
                 (target_id,), commit=True
             )
             pending_captcha_users.pop(target_id, None)
@@ -1330,11 +1316,10 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await message.reply_text(
                 f"{E['LIKE']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
-                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code và bỏ qua kiểm tra IP.",
+                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha và bỏ qua kiểm tra IP.",
                 parse_mode="HTML"
             )
 
-        # Lệnh /cpmo id: Mở khóa tài khoản khi nhập sai capcha hoặc bị khoá
         elif cmd == "/cpmo":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/cpmo USER_ID</code>", parse_mode="HTML")
@@ -1344,7 +1329,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
             
-            await db_query("UPDATE users SET is_banned=0 WHERE user_id=%s", (target_id,), commit=True)
+            await db_query("UPDATE users SET is_banned=0, captcha_verified=1 WHERE user_id=%s", (target_id,), commit=True)
             pending_captcha_users.pop(target_id, None)
             
             await message.reply_text(
@@ -1376,7 +1361,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await message.reply_text(f"{E['LIKE']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
 
         elif cmd == "/xmtb":
-            await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0", commit=True)
+            await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
             await message.reply_text(
                 f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
@@ -1858,8 +1843,8 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_str = "BẮT ĐẦU BẢO TRÌ 🔴" if new_val == "1" else "TẮT BẢO TRÌ 🟢"
             await message.reply_text(f"{E['DIZZY']} Trạng thái hệ thống: <b>{status_str}</b>", parse_mode="HTML")
 
-    except Exception as exc:
-        logger.exception("Lỗi admin command %s: %s", cmd, exc)
+    except Exception as ecx:
+        logger.exception("Lỗi admin command %s: %s", cmd, ecx)
         await message.reply_text(f"{E['CROSS']} Đã xảy ra lỗi khi xử lý lệnh.", parse_mode="HTML")
 
 # ============================================================
@@ -1897,7 +1882,7 @@ def main():
         
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
-    logger.info("🤖 Bot chạy thành công với Captcha phép tính ngẫu nhiên...")
+    logger.info("🤖 Bot chạy thành công với Captcha 9 ký tự chữ và số...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
