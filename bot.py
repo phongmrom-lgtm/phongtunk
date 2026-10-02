@@ -60,7 +60,7 @@ MAX_WITHDRAW = 10000
 REFERRAL_REWARD = 1000
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI
+# DANH SÁCH CUSTOM PREMIUM EMOJI (Đã thêm 15 emoji mới)
 # ============================================================
 E = {
     "WAVE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
@@ -146,6 +146,23 @@ E = {
     "NUM_2": '<tg-emoji emoji-id="5307907239380528763">2️⃣</tg-emoji>',
     "NUM_3": '<tg-emoji emoji-id="5859438077352612949">3️⃣</tg-emoji>',
     "NUM_4": '<tg-emoji emoji-id="5305255243104138538">4️⃣</tg-emoji>',
+
+    # 15 Custom Emoji mới được cung cấp
+    "NEW_WARN1": '<tg-emoji emoji-id="5447644880824181073">⚠️</tg-emoji>',
+    "NEW_WARN2": '<tg-emoji emoji-id="5420323339723881652">⚠️️</tg-emoji>',
+    "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "NEW_EXCL": '<tg-emoji emoji-id="5440660757194744323">‼️</tg-emoji>',
+    "NEW_QUEST": '<tg-emoji emoji-id="5314504236132747481">⁉️</tg-emoji>',
+    "NEW_MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
+    "NEW_ARROW": '<tg-emoji emoji-id="5416117059207572332">➡️</tg-emoji>',
+    "NEW_FIRE": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
+    "NEW_SHIELD": '<tg-emoji emoji-id="5251203410396458957">🛡</tg-emoji>',
+    "NEW_LINK": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
+    "NEW_TOP": '<tg-emoji emoji-id="5415655814079723871">🔝</tg-emoji>',
+    "NEW_REFRESH": '<tg-emoji emoji-id="5375338737028841420">🔄</tg-emoji>',
+    "NEW_CROWN": '<tg-emoji emoji-id="5217822164362739968">👑</tg-emoji>',
+    "NEW_PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
+    "NEW_PIN": '<tg-emoji emoji-id="5391032818111363540">📍</tg-emoji>',
 }
 
 # ============================================================
@@ -158,8 +175,6 @@ user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
 pending_captcha_users = {}
-
-# Lưu trữ trạng thái yêu cầu nhập liệu từng bước cho Admin khi bấm nút từ bảng /adm
 admin_input_states = {}
 
 # ============================================================
@@ -534,7 +549,7 @@ async def prompt_ip_verification(message_or_bot, user_id):
         await message_or_bot.send_message(chat_id=user_id, text=msg, reply_markup=get_miniapp_keyboard(), parse_mode="HTML")
 
 # ============================================================
-# GỬI CAPTCHA VÀ XỬ LÝ TIMEOUT
+# GỬI CAPTCHA VÀ XỬ LÝ TIMEOUT (Đã làm đẹp bằng các emoji mới)
 # ============================================================
 async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int, message_text="", is_retry=False):
     if is_retry:
@@ -560,10 +575,11 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
-        f"🛡 <b>XÁC MINH CAPTCHA (9 KÝ TỰ CHỮ & SỐ)</b>\n\n"
-        f"Nhập đúng mã 9 ký tự trong ảnh (phân biệt chữ hoa/thường).\n"
-        f"⏳ <b>300 giây</b>\n"
-        f"✔️ <b>Còn 3 lần thử</b>"
+        f"{E['NEW_SHIELD']} <b>HỆ THỐNG XÁC MINH CAPTCHA VIP</b> {E['NEW_CROWN']}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['NEW_WARN1']} <b>Yêu cầu:</b> Nhập chính xác <b>9 ký tự</b> (chữ hoa/thường & số) có trong ảnh bên trên.\n\n"
+        f"{E['NEW_PIN']} Thời gian hiệu lực: ⏳ <b>300 giây</b>\n"
+        f"{E['NEW_FIRE']} Số lần thử còn lại: {E['NEW_CHECK']} <b>3 lần</b>"
     )
     
     sent_msg = None
@@ -604,9 +620,9 @@ async def captcha_timeout_checker(context: ContextTypes.DEFAULT_TYPE, user_id: i
             await context.bot.send_message(
                 chat_id=user_id,
                 text=(
-                    f"{E['DISLIKE']} <b>BẠN ĐÃ BỊ KHÓA TÀI KHOẢN VĨNH VIỄN!</b>\n"
+                    f"{E['NEW_WARN2']} <b>BẠN ĐÃ BỊ KHÓA TÀI KHOẢN VĨNH VIỄN!</b> {E['CROSS']}\n"
                     f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['THERMOMETER']} Lý do: Không trả lời Captcha sau 3 lần gửi lại."
+                    f"{E['THERMOMETER']} Lý do: Không hoàn thành Captcha sau 3 lần thử lại."
                 ),
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardRemove()
@@ -618,7 +634,7 @@ async def captcha_timeout_checker(context: ContextTypes.DEFAULT_TYPE, user_id: i
     try:
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"{E['REFRESH']} <b>Hết thời gian! Đang gửi lại Captcha mới...</b>\nLần thử {data['retry_count'] + 1}/3",
+            text=f"{E['NEW_REFRESH']} <b>Hết thời gian! Đang gửi lại mã Captcha mới...</b>\nLần thử {data['retry_count'] + 1}/3",
             parse_mode="HTML"
         )
         try:
@@ -639,7 +655,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         pending_captcha_users.pop(user_id, None)
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"{E['HOURGLASS']} <b>Captcha đã hết hạn!</b> Vui lòng bấm /start để làm lại.",
+            text=f"{E['HOURGLASS']} <b>Mã Captcha đã hết hạn!</b> Vui lòng bấm /start để thực hiện lại.",
             parse_mode="HTML"
         )
         return True
@@ -649,7 +665,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         await db_query("UPDATE users SET captcha_verified=1 WHERE user_id=%s", (user_id,), commit=True)
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"{E['CHECK']} <b>Xác minh Captcha thành công!</b>",
+            text=f"{E['NEW_CHECK']} <b>Xác minh Captcha thành công! Tuyệt vời.</b>",
             parse_mode="HTML"
         )
         user = update.effective_user
@@ -663,9 +679,9 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.send_message(
                 chat_id=user_id,
                 text=(
-                    f"{E['DISLIKE']} <b>BẠN ĐÃ BỊ KHÓA TÀI KHOẢN VĨNH VIỄN!</b>\n"
+                    f"{E['NEW_EXCL']} <b>BẠN ĐÃ BỊ KHÓA TÀI KHOẢN VĨNH VIỄN!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['THERMOMETER']} Lý do: Nhập sai Captcha quá 3 lần."
+                    f"{E['NEW_WARN1']} Lý do: Nhập sai mã Captcha quá 3 lần cho phép."
                 ),
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardRemove()
@@ -673,7 +689,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"{E['DISLIKE']} <b>Mã Captcha không chính xác!</b> Còn lại <b>{data['attempts']}</b> lần thử.",
+                text=f"{E['NEW_WARN2']} <b>Mã Captcha không chính xác!</b> Số lần thử còn lại: <b>{data['attempts']}</b> lần.",
                 parse_mode="HTML"
             )
         return True
@@ -1288,39 +1304,39 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception: pass
 
 # ============================================================
-# BẢNG TỔNG HỢP LỆNH ADMIN /adm VÀ INTERACTIVE STEPS
+# BẢNG TỔNG HỢP LỆNH ADMIN /adm (Sử dụng 15 emoji mới)
 # ============================================================
 async def adm_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update): return
     
     keyboard = [
-        [InlineKeyboardButton("📢 /tb (Gửi thông báo)", callback_data="adm_step_tb"),
-         InlineKeyboardButton("➕ /addcode (Thêm mã code)", callback_data="adm_step_addcode")],
-        [InlineKeyboardButton("💰 /nap (Cộng tiền user)", callback_data="adm_step_nap"),
-         InlineKeyboardButton("💸 /tru (Trừ tiền user)", callback_data="adm_step_tru")],
-        [InlineKeyboardButton("🔍 /info (Xem chi tiết user)", callback_data="adm_step_info"),
-         InlineKeyboardButton("📊 /dl (Kiểm tra ID chi tiết)", callback_data="adm_step_dl")],
-        [InlineKeyboardButton("🚫 /ban (Cấm vĩnh viễn)", callback_data="adm_step_ban"),
-         InlineKeyboardButton("🔓 /moban (Gỡ cấm user)", callback_data="adm_step_moban")],
-        [InlineKeyboardButton("🛑 /cam (Cấm rút code)", callback_data="adm_step_cam"),
-         InlineKeyboardButton("✅ /mocam (Gỡ cấm rút code)", callback_data="adm_step_mocam")],
-        [InlineKeyboardButton("📦 /kho (Thống kê kho code)", callback_data="adm_act_kho"),
-         InlineKeyboardButton("📋 /dscode (Danh sách code)", callback_data="adm_act_dscode")],
-        [InlineKeyboardButton("👥 /tong (Thống kê thành viên)", callback_data="adm_act_tong"),
-         InlineKeyboardButton("🛠 /baotri (Bật/Tắt bảo trì)", callback_data="adm_act_baotri")],
-        [InlineKeyboardButton("🔄 /xmtb (Reset xác minh toàn bộ)", callback_data="adm_act_xmtb")]
+        [InlineKeyboardButton(f"{E['NEW_MONEY']} /tb (Gửi thông báo)", callback_data="adm_step_tb"),
+         InlineKeyboardButton(f"{E['NEW_PLUS']} /addcode (Thêm mã code)", callback_data="adm_step_addcode")],
+        [InlineKeyboardButton(f"{E['NEW_CROWN']} /nap (Cộng tiền user)", callback_data="adm_step_nap"),
+         InlineKeyboardButton(f"{E['NEW_WARN1']} /tru (Trừ tiền user)", callback_data="adm_step_tru")],
+        [InlineKeyboardButton(f"{E['NEW_PIN']} /info (Xem chi tiết user)", callback_data="adm_step_info"),
+         InlineKeyboardButton(f"{E['NEW_SHIELD']} /dl (Kiểm tra ID chi tiết)", callback_data="adm_step_dl")],
+        [InlineKeyboardButton(f"{E['NEW_EXCL']} /ban (Cấm vĩnh viễn)", callback_data="adm_step_ban"),
+         InlineKeyboardButton(f"{E['NEW_CHECK']} /moban (Gỡ cấm user)", callback_data="adm_step_moban")],
+        [InlineKeyboardButton(f"{E['NEW_QUEST']} /cam (Cấm rút code)", callback_data="adm_step_cam"),
+         InlineKeyboardButton(f"{E['NEW_LINK']} /mocam (Gỡ cấm rút code)", callback_data="adm_step_mocam")],
+        [InlineKeyboardButton(f"{E['NEW_FIRE']} /kho (Thống kê kho code)", callback_data="adm_act_kho"),
+         InlineKeyboardButton(f"{E['NEW_TOP']} /dscode (Danh sách code)", callback_data="adm_act_dscode")],
+        [InlineKeyboardButton(f"{E['NEW_ARROW']} /tong (Thống kê thành viên)", callback_data="adm_act_tong"),
+         InlineKeyboardButton(f"{E['GEAR']} /baotri (Bật/Tắt bảo trì)", callback_data="adm_act_baotri")],
+        [InlineKeyboardButton(f"{E['NEW_REFRESH']} /xmtb (Reset xác minh toàn bộ)", callback_data="adm_act_xmtb")]
     ]
     
     msg = (
-        f"{E['GEAR']} <b>BẢNG ĐIỀU KHIỂN LỆNH ADMIN</b>\n"
+        f"{E['NEW_SHIELD']} <b>BẢNG ĐIỀU KHIỂN LỆNH ADMIN VIP</b> {E['NEW_CROWN']}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Bấm vào các nút bên dưới để bot hướng dẫn từng bước và thực thi lệnh tự động:</i>\n\n"
-        f"• <b>/tb:</b> Gửi thông báo đến toàn bộ người dùng & nhóm.\n"
-        f"• <b>/addcode:</b> Thêm mã code mới vào kho.\n"
-        f"• <b>/nap / tru:</b> Cộng hoặc trừ số dư tài khoản user.\n"
-        f"• <b>/info / dl:</b> Xem thông tin chi tiết user.\n"
-        f"• <b>/ban / moban:</b> Quản lý trạng thái khóa tài khoản.\n"
-        f"• <b>/cam / mocam:</b> Quản lý trạng thái cấm rút code."
+        f"<i>Bấm vào các nút bên dưới, sau đó bạn chỉ cần gửi trực tiếp nội dung/số liệu cần thao tác:</i>\n\n"
+        f"{E['NEW_ARROW']} <b>/tb:</b> Gửi thông báo đến toàn bộ người dùng & nhóm.\n"
+        f"{E['NEW_ARROW']} <b>/addcode:</b> Thêm mã code mới vào kho.\n"
+        f"{E['NEW_ARROW']} <b>/nap / tru:</b> Cộng hoặc trừ số dư tài khoản user.\n"
+        f"{E['NEW_ARROW']} <b>/info / dl:</b> Xem thông tin chi tiết user.\n"
+        f"{E['NEW_ARROW']} <b>/ban / moban:</b> Quản lý trạng thái khóa tài khoản.\n"
+        f"{E['NEW_ARROW']} <b>/cam / mocam:</b> Quản lý trạng thái cấm rút code."
     )
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
@@ -1337,42 +1353,41 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "kho":
             res1 = await db_query("SELECT COUNT(*) FROM code_stock WHERE is_used=0", fetchone=True)
             cnt = res1[0] if res1 else 0
-            await query.message.reply_text(f"{E['ROCK']} <b>Thống kê kho code:</b> Tổng số code chưa sử dụng: <b>{cnt:,}</b>", parse_mode="HTML")
+            await query.message.reply_text(f"{E['NEW_FIRE']} <b>Thống kê kho code:</b> Tổng số code chưa sử dụng: <b>{cnt:,}</b>", parse_mode="HTML")
         elif action == "dscode":
             codes_list = await db_query("SELECT id, code_val, created_at FROM code_stock WHERE is_used=0 ORDER BY id DESC LIMIT 20", fetchall=True)
             if not codes_list:
                 await query.message.reply_text(f"{E['BANDAGE']} Kho code đang trống!", parse_mode="HTML")
                 return
-            text_res = f"{E['ROCK']} <b>20 Code mới nhất trong kho:</b>\n"
+            text_res = f"{E['NEW_TOP']} <b>20 Code mới nhất trong kho:</b>\n"
             for cid, cval, cat in codes_list:
                 text_res += f"• ID: <code>{cid}</code> | Code: <code>{cval}</code>\n"
             await query.message.reply_text(text_res, parse_mode="HTML")
         elif action == "tong":
             res = await db_query("SELECT COUNT(*) FROM users", fetchone=True)
-            await query.message.reply_text(f"{E['LIKE']} Tổng số thành viên trong hệ thống: <b>{res[0]:,}</b>", parse_mode="HTML")
+            await query.message.reply_text(f"{E['NEW_ARROW']} Tổng số thành viên trong hệ thống: <b>{res[0]:,}</b>", parse_mode="HTML")
         elif action == "baotri":
             curr = await is_maintenance()
             new_val = "0" if curr else "1"
             await db_query("UPDATE settings SET value=%s WHERE key='maintenance'", (new_val,), commit=True)
             status_str = "BẮT ĐẦU BẢO TRÌ 🔴" if new_val == "1" else "TẮT BẢO TRÌ 🟢"
-            await query.message.reply_text(f"{E['DIZZY']} Trạng thái hệ thống đã đổi thành: <b>{status_str}</b>", parse_mode="HTML")
+            await query.message.reply_text(f"{E['GEAR']} Trạng thái hệ thống đã đổi thành: <b>{status_str}</b>", parse_mode="HTML")
         elif action == "xmtb":
             await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
-            await query.message.reply_text(f"{E['LIKE']} Đã đặt lại trạng thái xác minh toàn bộ thành viên!", parse_mode="HTML")
+            await query.message.reply_text(f"{E['NEW_REFRESH']} Đã đặt lại trạng thái xác minh toàn bộ thành viên!", parse_mode="HTML")
         return
 
-    # Các lệnh yêu cầu nhập bước tiếp theo
     step_map = {
-        "adm_step_tb": ("tb", "📢 <b>Nhập nội dung thông báo bạn muốn gửi:</b>\n<i>(Gửi tin nhắn tiếp theo để bot phát tán thông báo)</i>"),
-        "adm_step_addcode": ("addcode", "➕ <b>Nhập danh sách mã code cần thêm:</b>\n<i>(Có thể nhập nhiều mã cách nhau bằng khoảng trắng hoặc xuống dòng)</i>"),
-        "adm_step_nap": ("nap", "💰 <b>Nhập thông tin theo cú pháp:</b> <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 50000</i>"),
-        "adm_step_tru": ("tru", "💸 <b>Nhập thông tin theo cú pháp:</b> <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 20000</i>"),
-        "adm_step_info": ("info", "🔍 <b>Nhập USER_ID cần xem thông tin cơ bản:</b>"),
-        "adm_step_dl": ("dl", "📊 <b>Nhập USER_ID cần kiểm tra chi tiết đầy đủ:</b>"),
-        "adm_step_ban": ("ban", "🚫 <b>Nhập USER_ID cần cấm vĩnh viễn:</b>"),
-        "adm_step_moban": ("moban", "🔓 <b>Nhập USER_ID cần gỡ cấm:</b>"),
-        "adm_step_cam": ("cam", "🛑 <b>Nhập USER_ID cần cấm rút code:</b>"),
-        "adm_step_mocam": ("mocam", "✅ <b>Nhập USER_ID cần gỡ cấm rút code:</b>")
+        "adm_step_tb": ("tb", f"{E['NEW_MONEY']} <b>Nhập nội dung thông báo bạn muốn gửi:</b>\n<i>(Chỉ cần gửi nội dung, không cần gõ /tb)</i>"),
+        "adm_step_addcode": ("addcode", f"{E['NEW_PLUS']} <b>Nhập danh sách mã code cần thêm:</b>\n<i>(Có thể nhập nhiều mã cách nhau bằng khoảng trắng hoặc xuống dòng)</i>"),
+        "adm_step_nap": ("nap", f"{E['NEW_CROWN']} <b>Nhập thông tin theo cú pháp:</b> <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 50000</i>"),
+        "adm_step_tru": ("tru", f"{E['NEW_WARN1']} <b>Nhập thông tin theo cú pháp:</b> <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 20000</i>"),
+        "adm_step_info": ("info", f"{E['NEW_PIN']} <b>Nhập USER_ID cần xem thông tin cơ bản:</b>"),
+        "adm_step_dl": ("dl", f"{E['NEW_SHIELD']} <b>Nhập USER_ID cần kiểm tra chi tiết đầy đủ:</b>"),
+        "adm_step_ban": ("ban", f"{E['NEW_EXCL']} <b>Nhập USER_ID cần cấm vĩnh viễn:</b>"),
+        "adm_step_moban": ("moban", f"{E['NEW_CHECK']} <b>Nhập USER_ID cần gỡ cấm:</b>"),
+        "adm_step_cam": ("cam", f"{E['NEW_QUEST']} <b>Nhập USER_ID cần cấm rút code:</b>"),
+        "adm_step_mocam": ("mocam", f"{E['NEW_LINK']} <b>Nhập USER_ID cần gỡ cấm rút code:</b>")
     }
 
     if data in step_map:
@@ -1381,7 +1396,7 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(prompt_text, parse_mode="HTML")
 
 # ============================================================
-# ADMIN COMMANDS
+# ADMIN COMMANDS (Tự động nhận diện input sau khi bấm nút /adm)
 # ============================================================
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update): return
@@ -1389,12 +1404,10 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message: return
     user_id = message.from_user.id
 
-    # Xử lý nhập liệu theo từng bước khi Admin bấm nút từ bảng /adm
     if user_id in admin_input_states:
         cmd_type = admin_input_states.pop(user_id)
         text_input = (message.text or "").strip()
         
-        # Giả lập lại lệnh như cú pháp thông thường để chạy chung hàm xử lý
         if cmd_type == "tb":
             context.args = text_input.split()
             message.text = f"/tb {text_input}"
@@ -1407,7 +1420,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 context.args = parts
                 message.text = f"/{cmd_type} {parts[0]} {parts[1]}"
             else:
-                await message.reply_text(f"{E['CROSS']} Sai cú pháp. Vui lòng thử lại bằng cách bấm nút tương ứng.", parse_mode="HTML")
+                await message.reply_text(f"{E['CROSS']} Sai cú pháp. Vui lòng thử lại.", parse_mode="HTML")
                 return
         elif cmd_type in ("info", "dl", "ban", "moban", "cam", "mocam"):
             parts = text_input.split()
@@ -1977,7 +1990,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def text_message_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message: return
     user = update.effective_user
-    # Kiểm tra nếu admin đang trong tiến trình nhập thông tin từ bảng /adm
     if user and user.id in admin_input_states and user.id in ADMIN_IDS:
         await admin_commands(update, context)
         return
@@ -2015,7 +2027,7 @@ def main():
         
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
-    logger.info("🤖 Bot chạy thành công với Captcha 9 ký tự chữ và số và bảng /adm...")
+    logger.info("🤖 Bot chạy thành công với giao diện mới và 15 emoji tùy chỉnh...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
