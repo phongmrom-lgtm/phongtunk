@@ -66,7 +66,7 @@ E = {
     "WAVE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
     "SMILE": '<tg-emoji emoji-id="5238185738184435219">🙂</tg-emoji>',
     "LOVE_FACE": '<tg-emoji emoji-id="5197387964098813812">🥰</tg-emoji>',
-    "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️</tg-emoji>',
+    "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️️</tg-emoji>',
     "CAR_RED": '<tg-emoji emoji-id="5240037474679398914">🚘</tg-emoji>',
     "BANANA": '<tg-emoji emoji-id="5242466828441099349">🍌</tg-emoji>',
     "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨</tg-emoji>',
@@ -97,7 +97,7 @@ E = {
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
-    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️️</tg-emoji>',
     "DROP": '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>',
     "SNOW": '<tg-emoji emoji-id="5449449325434266744">❄️</tg-emoji>',
     "BULB": '<tg-emoji emoji-id="5422439311196834318">💡</tg-emoji>',
@@ -147,13 +147,13 @@ E = {
     "NUM_3": '<tg-emoji emoji-id="5859438077352612949">3️⃣</tg-emoji>',
     "NUM_4": '<tg-emoji emoji-id="5305255243104138538">4️⃣</tg-emoji>',
 
-    "NEW_WARN1": '<tg-emoji emoji-id="5447644880824181073">⚠️️</tg-emoji>',
+    "NEW_WARN1": '<tg-emoji emoji-id="5447644880824181073">⚠</tg-emoji>',
     "NEW_WARN2": '<tg-emoji emoji-id="5420323339723881652">⚠</tg-emoji>',
     "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
-    "NEW_EXCL": '<tg-emoji emoji-id="5440660757194744323">‼️️</tg-emoji>',
+    "NEW_EXCL": '<tg-emoji emoji-id="5440660757194744323">‼</tg-emoji>',
     "NEW_QUEST": '<tg-emoji emoji-id="5314504236132747481">⁉️</tg-emoji>',
     "NEW_MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
-    "NEW_ARROW": '<tg-emoji emoji-id="5416117059207572332">➡️️</tg-emoji>',
+    "NEW_ARROW": '<tg-emoji emoji-id="5416117059207572332">➡</tg-emoji>',
     "NEW_FIRE": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
     "NEW_SHIELD": '<tg-emoji emoji-id="5251203410396458957">🛡</tg-emoji>',
     "NEW_LINK": '<tg-emoji emoji-id="5271604874419647061">🔗</tg-emoji>',
@@ -888,6 +888,41 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await message.reply_text(f"{E['CROSS']} Có lỗi xảy ra trong quá trình xác minh IP.", parse_mode="HTML")
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
+    # ==========================================================
+    # TÍNH NĂNG MỚI: KIỂM TRA BIO KHI HOÀN TẤT ĐĂNG KÝ
+    # ==========================================================
+    try:
+        chat_full = await context.bot.get_chat(user.id)
+        bio = chat_full.bio or ""
+        if "@Lienminhvietnam" in bio:
+            db_user_info = await db_query("SELECT referrer_id FROM users WHERE user_id=%s", (user.id,), fetchone=True)
+            referrer_id = db_user_info[0] if db_user_info else None
+
+            # Khóa tài khoản người được giới thiệu
+            await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
+            
+            # Nếu có người giới thiệu, khóa luôn người giới thiệu
+            if referrer_id:
+                await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (referrer_id,), commit=True)
+                try:
+                    await context.bot.send_message(
+                        chat_id=referrer_id,
+                        text=f"🚨 <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n━━━━━━━━━━━━━━━━━━\nLý do: Người bạn giới thiệu (ID: <code>{user.id}</code>) có tiểu sử chứa `@Lienminhvietnam`.",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+            await context.bot.send_message(
+                chat_id=user.id,
+                text=f"🚨 <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n━━━━━━━━━━━━━━━━━━\nLý do: Phát hiện tiểu sử (`bio`) chứa `@Lienminhvietnam`.",
+                parse_mode="HTML",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
+    except Exception as exc:
+        logger.warning(f"Lỗi kiểm tra bio khi đăng ký cho user {user.id}: {exc}")
+
     db_user = await db_query("SELECT referrer_id FROM users WHERE user_id=%s", (user.id,), fetchone=True)
     if db_user and db_user[0]:
         ref_id = db_user[0]
@@ -1328,9 +1363,6 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_input_states[user_id] = cmd_type
         await query.message.reply_text(prompt_text, parse_mode="HTML")
 
-# ============================================================
-# HÀM GỬI THÔNG BÁO TÁCH CHUNK (NẾU DÀI QUÁ GIỚI HẠN TELEGRAM)
-# ============================================================
 async def send_split_message(bot, chat_id, text, parse_mode="HTML"):
     MAX_LEN = 4000
     if len(text) <= MAX_LEN:
@@ -1349,9 +1381,6 @@ async def send_split_message(bot, chat_id, text, parse_mode="HTML"):
     if current_chunk.strip():
         await bot.send_message(chat_id=chat_id, text=current_chunk, parse_mode=parse_mode, disable_web_page_preview=True)
 
-# ============================================================
-# ADMIN COMMANDS (BỔ SUNG /check, /khoabuff, /checktv)
-# ============================================================
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update): return
     message = update.effective_message
@@ -1390,12 +1419,23 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        # LỆNH /check (Chỉ có tác dụng khi dùng lệnh /check)
-        if cmd == "/check":
+        # ==========================================================
+        # TÍNH NĂNG MỚI: LỆNH /sdall (XÓA TOÀN BỘ SỐ DƯ NGƯỜI DÙNG)
+        # ==========================================================
+        if cmd == "/sdall":
+            await db_query("UPDATE users SET balance = 0", commit=True)
+            await message.reply_text(
+                f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI SỐ DƯ THÀNH CÔNG!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"Toàn bộ số dư của tất cả người dùng trong cơ sở dữ liệu đã được đưa về <b>0đ</b>.",
+                parse_mode="HTML"
+            )
+
+        elif cmd == "/check":
             await message.reply_text(f"{E['HOURGLASS']} Đang tiến hành kiểm tra tiểu sử thành viên hệ thống...", parse_mode="HTML")
             all_users = await db_query("SELECT user_id, username, phone_number, ip_address, referrer_id FROM users WHERE is_banned=0", fetchall=True)
             
-            banned_pairs = [] # Lưu danh sách (referrer, referred_user)
+            banned_pairs = []
             referrer_map = defaultdict(list)
             
             for u_id, uname, phone, ip, ref_id in all_users:
@@ -1414,14 +1454,11 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CHECK']} Không phát hiện tài khoản nào có tiểu sử `@Lienminhvietnam` và có người giới thiệu.", parse_mode="HTML")
                 return
 
-            # Tiến hành khóa vĩnh viễn cả người giới thiệu và người được giới thiệu
             processed_ref_ids = set()
-            report_lines = [f"{E['ALERT'] if 'ALERT' in E else '🚨'} <b>BÁO CÁO KHÓA TÀI KHOẢN BUFF / VI PHẠM</b>\n━━━━━━━━━━━━━━━━━━\n"]
+            report_lines = [f"🚨 <b>BÁO CÁO KHÓA TÀI KHOẢN BUFF / VI PHẠM</b>\n━━━━━━━━━━━━━━━━━━\n"]
             
             for ref_id, ref_by_id in banned_pairs:
-                # Khóa người được giới thiệu
                 await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (ref_by_id,), commit=True)
-                # Khóa người giới thiệu
                 await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (ref_id,), commit=True)
 
             for ref_id, referred_list in referrer_map.items():
@@ -1444,7 +1481,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             full_report = "\n".join(report_lines)
             await send_split_message(context.bot, chat_id, full_report, parse_mode="HTML")
 
-        # LỆNH /khoabuff: Khóa toàn bộ tài khoản có tiểu sử @Lienminhvietnam và người giới thiệu của họ
         elif cmd == "/khoabuff":
             await message.reply_text(f"{E['HOURGLASS']} Đang quét hệ thống để khóa toàn bộ tài khoản buff tiểu sử `@Lienminhvietnam`...", parse_mode="HTML")
             all_users = await db_query("SELECT user_id, username, referrer_id FROM users WHERE is_banned=0", fetchall=True)
@@ -1488,7 +1524,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             full_report = "\n".join(report_lines)
             await send_split_message(context.bot, chat_id, full_report, parse_mode="HTML")
 
-        # LỆNH /checktv: Tự động check xem người giới thiệu đã giới thiệu những ai có tiểu sử @Lienminhvietnam
         elif cmd == "/checktv":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/checktv USER_ID_HOẶC_USERNAME</code>", parse_mode="HTML")
@@ -1540,7 +1575,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             full_report = "\n".join(report_lines)
             await send_split_message(context.bot, chat_id, full_report, parse_mode="HTML")
 
-        # Các lệnh admin cũ giữ nguyên...
         elif cmd == "/mcall":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/mcall USER_ID</code>", parse_mode="HTML")
@@ -2124,7 +2158,7 @@ def main():
     admin_cmds = [
         "addcode", "dscode", "xoatb", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip", "mcall", "cpmo",
-        "check", "khoabuff", "checktv"
+        "check", "khoabuff", "checktv", "sdall"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
@@ -2135,4 +2169,4 @@ def main():
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
-    main()
+main()
