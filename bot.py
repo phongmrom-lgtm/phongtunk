@@ -50,7 +50,7 @@ TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 REQUIRED_CHECK_CHANNELS = [
     "@khuyenmaionline", "@sanhugame", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
-    "@hocviencbm", "@hongtinmoingay24", "https://t.me/conmuamenmenl",
+    "@hocviencbm", "https://t.me/conmuamenmenl",
 ]
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
@@ -66,7 +66,7 @@ E = {
     "WAVE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
     "SMILE": '<tg-emoji emoji-id="5238185738184435219">🙂</tg-emoji>',
     "LOVE_FACE": '<tg-emoji emoji-id="5197387964098813812">🥰</tg-emoji>',
-    "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺️️</tg-emoji>',
+    "BLUSH": '<tg-emoji emoji-id="5238015713314086319">☺</tg-emoji>',
     "CAR_RED": '<tg-emoji emoji-id="5240037474679398914">🚘</tg-emoji>',
     "BANANA": '<tg-emoji emoji-id="5242466828441099349">🍌</tg-emoji>',
     "KEYBOARD": '<tg-emoji emoji-id="5242451907724716893">⌨</tg-emoji>',
@@ -149,7 +149,7 @@ E = {
 
     "NEW_WARN1": '<tg-emoji emoji-id="5447644880824181073">⚠</tg-emoji>',
     "NEW_WARN2": '<tg-emoji emoji-id="5420323339723881652">⚠</tg-emoji>',
-    "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️️</tg-emoji>',
+    "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔</tg-emoji>',
     "NEW_EXCL": '<tg-emoji emoji-id="5440660757194744323">‼</tg-emoji>',
     "NEW_QUEST": '<tg-emoji emoji-id="5314504236132747481">⁉️</tg-emoji>',
     "NEW_MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
