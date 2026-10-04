@@ -97,7 +97,7 @@ E = {
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
-    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️️</tg-emoji>',
+    "DOWN": '<tg-emoji emoji-id="5406745015365943482">⬇️</tg-emoji>',
     "DROP": '<tg-emoji emoji-id="5393512611968995988">💧</tg-emoji>',
     "SNOW": '<tg-emoji emoji-id="5449449325434266744">❄️</tg-emoji>',
     "BULB": '<tg-emoji emoji-id="5422439311196834318">💡</tg-emoji>',
@@ -149,7 +149,7 @@ E = {
 
     "NEW_WARN1": '<tg-emoji emoji-id="5447644880824181073">⚠</tg-emoji>',
     "NEW_WARN2": '<tg-emoji emoji-id="5420323339723881652">⚠</tg-emoji>',
-    "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
+    "NEW_CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️️</tg-emoji>',
     "NEW_EXCL": '<tg-emoji emoji-id="5440660757194744323">‼</tg-emoji>',
     "NEW_QUEST": '<tg-emoji emoji-id="5314504236132747481">⁉️</tg-emoji>',
     "NEW_MONEY": '<tg-emoji emoji-id="5231449120635370684">💸</tg-emoji>',
@@ -888,9 +888,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await message.reply_text(f"{E['CROSS']} Có lỗi xảy ra trong quá trình xác minh IP.", parse_mode="HTML")
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    # ==========================================================
-    # TÍNH NĂNG MỚI: KIỂM TRA BIO KHI HOÀN TẤT ĐĂNG KÝ
-    # ==========================================================
     try:
         chat_full = await context.bot.get_chat(user.id)
         bio = chat_full.bio or ""
@@ -898,10 +895,8 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             db_user_info = await db_query("SELECT referrer_id FROM users WHERE user_id=%s", (user.id,), fetchone=True)
             referrer_id = db_user_info[0] if db_user_info else None
 
-            # Khóa tài khoản người được giới thiệu
             await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
             
-            # Nếu có người giới thiệu, khóa luôn người giới thiệu
             if referrer_id:
                 await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (referrer_id,), commit=True)
                 try:
@@ -1419,9 +1414,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args or []
     raw_text = message.text or ""
     try:
-        # ==========================================================
-        # TÍNH NĂNG MỚI: LỆNH /sdall (XÓA TOÀN BỘ SỐ DƯ NGƯỜI DÙNG)
-        # ==========================================================
         if cmd == "/sdall":
             await db_query("UPDATE users SET balance = 0", commit=True)
             await message.reply_text(
@@ -1454,7 +1446,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CHECK']} Không phát hiện tài khoản nào có tiểu sử `@Lienminhvietnam` và có người giới thiệu.", parse_mode="HTML")
                 return
 
-            processed_ref_ids = set()
             report_lines = [f"🚨 <b>BÁO CÁO KHÓA TÀI KHOẢN BUFF / VI PHẠM</b>\n━━━━━━━━━━━━━━━━━━\n"]
             
             for ref_id, ref_by_id in banned_pairs:
@@ -2169,4 +2160,4 @@ def main():
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
-main()
+    main()
