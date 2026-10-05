@@ -48,7 +48,7 @@ ADMIN_IDS = [5633649201]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
 REQUIRED_CHECK_CHANNELS = [
-    "@khuyenmaionline", "@sanhugame", "@sancode22", "@xombao247",
+    "@khuyenmaionline", "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
     "@hocviencbm", "https://t.me/conmuamenmenl",
 ]
