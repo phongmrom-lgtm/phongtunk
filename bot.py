@@ -51,6 +51,7 @@ REQUIRED_CHECK_CHANNELS = [
     "@khuyenmaionline", "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
     "@hocviencbm", "https://t.me/icbm988", "https://t.me/hit88cm",
+    "https://t.me/hocviencb",  # Đã thêm nhóm yêu cầu tham gia mới
 ]
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
@@ -93,7 +94,7 @@ E = {
     "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
-    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
+    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️️</tg-emoji>',
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
