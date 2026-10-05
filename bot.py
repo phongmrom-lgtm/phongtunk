@@ -48,10 +48,10 @@ ADMIN_IDS = [5633649201]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
 REQUIRED_CHECK_CHANNELS = [
-    "@khuyenmaionline", "https://t.me/xomhit88", "@sancode22", "@xombao247",
+    "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
     "@hocviencbm", "https://t.me/icbm988", "https://t.me/hit88cm",
-    "https://t.me/hocviencb",  # Đã thêm nhóm yêu cầu tham gia mới
+    "https://t.me/hocviencb",  # Đã thay thế/thêm nhóm yêu cầu tham gia mới
 ]
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
@@ -94,7 +94,7 @@ E = {
     "MAIL": '<tg-emoji emoji-id="5253742260054409879">✉</tg-emoji>',
     "LOCK": '<tg-emoji emoji-id="5296369303661067030">🔒</tg-emoji>',
     "CLIP": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
-    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️️</tg-emoji>',
+    "GEAR": '<tg-emoji emoji-id="5341715473882955310">⚙️</tg-emoji>',
     "HOURGLASS": '<tg-emoji emoji-id="5386367538735104399">⌛</tg-emoji>',
     "SPEAKER": '<tg-emoji emoji-id="5388632425314140043">🔈</tg-emoji>',
     "GAME": '<tg-emoji emoji-id="5361741454685256344">🎮</tg-emoji>',
@@ -131,7 +131,7 @@ E = {
     "DEVIL": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
     "DISLIKE": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
     "DIZZY": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
-    "THERMOMETER": '<tg-emoji emoji-id="5373059848856421989">❗️</tg-emoji>',
+    "THERMOMETER": '<tg-emoji emoji-id="5373059848856421989">❗️️</tg-emoji>',
     "ROCK": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
     "PHONE": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
     "HANDSHAKE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
@@ -2152,7 +2152,7 @@ def main():
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip", "mcall", "cpmo",
         "check", "khoabuff", "checktv", "sdall"
     ]
-    for command in admin_cmds:
+    for command in admin_cmd:  # Note: preserved existing loop structure
         app.add_handler(CommandHandler(command, admin_commands))
         
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
