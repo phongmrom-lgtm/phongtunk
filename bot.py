@@ -51,7 +51,7 @@ REQUIRED_CHECK_CHANNELS = [
     "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
     "@hocviencbm", "https://t.me/icbm988", "https://t.me/hit88cm",
-    "https://t.me/hocviencb",  # Đã thay thế/thêm nhóm yêu cầu tham gia mới
+    "https://t.me/hocviencb",
 ]
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
@@ -131,7 +131,7 @@ E = {
     "DEVIL": '<tg-emoji emoji-id="5228962845672096235">😈</tg-emoji>',
     "DISLIKE": '<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji>',
     "DIZZY": '<tg-emoji emoji-id="5463156928307801722">🤕</tg-emoji>',
-    "THERMOMETER": '<tg-emoji emoji-id="5373059848856421989">❗️️</tg-emoji>',
+    "THERMOMETER": '<tg-emoji emoji-id="5373059848856421989">❗</tg-emoji>',
     "ROCK": '<tg-emoji emoji-id="5424972470023104089">🔥</tg-emoji>',
     "PHONE": '<tg-emoji emoji-id="5242451907724716893">⌨️</tg-emoji>',
     "HANDSHAKE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
@@ -2152,7 +2152,8 @@ def main():
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip", "mcall", "cpmo",
         "check", "khoabuff", "checktv", "sdall"
     ]
-    for command in admin_cmd:  # Note: preserved existing loop structure
+    # Đã sửa lỗi: đổi "admin_cmd" thành "admin_cmds" để khớp với danh sách bên trên
+    for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
         
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
