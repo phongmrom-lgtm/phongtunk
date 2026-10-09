@@ -61,7 +61,7 @@ MAX_WITHDRAW = 10000
 REFERRAL_REWARD = 1000
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ CẬP NHẬT 59 ID MỚI)
+# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ ĐẢM BẢO KHÔNG TRÙNG ID)
 # ============================================================
 E = {
     "CHECK": '<tg-emoji emoji-id="5206607081334906820">✔️</tg-emoji>',
@@ -281,9 +281,6 @@ async def is_maintenance():
     res = await db_query("SELECT value FROM settings WHERE key='maintenance'", fetchone=True)
     return bool(res and res[0] == "1")
 
-# ============================================================
-# HÀM TẠO CAPTCHA PHÉP TÍNH (CỘNG, TRỪ, NHÂN) ĐƠN GIẢN
-# ============================================================
 def generate_random_captcha():
     op = random.choice(["+", "-", "*"])
     if op == "+":
@@ -1070,7 +1067,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text in ["Nhóm Hỗ Trợ", "💬 Nhóm Hỗ Trợ"]:
         await message.reply_text(
             f"{E['SMILE']} <b>NHÓM HỖ TRỢ CHÍNH THỨC:</b>\n👉 {SUPPORT_GROUP}\n\n"
-            f"{E['CROWN']} <b>ADMIN:</b> @echcutodz",
+            f"{E['CROWN']} <b>ADMIN:</b> @dgfrutil",
             parse_mode="HTML",
         )
     elif text in ["Lịch Sử", "Lịch Sử Giao Dịch", "📜 Lịch Sử Giao Dịch"]:
