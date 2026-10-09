@@ -61,7 +61,7 @@ MAX_WITHDRAW = 10000
 REFERRAL_REWARD = 1000
 
 # ============================================================
-# DANH SÁCH CUSTOM PREMIUM EMOJI (ĐÃ CẬP NHẬT TỪ KHO EMOJI CỦA BẠN)
+# DANH SÁCH CUSTOM PREMIUM EMOJI
 # ============================================================
 E = {
     "WAVE": '<tg-emoji emoji-id="5235701688014217208">👋</tg-emoji>',
@@ -164,7 +164,6 @@ E = {
     "NEW_PLUS": '<tg-emoji emoji-id="5397916757333654639">➕</tg-emoji>',
     "NEW_PIN": '<tg-emoji emoji-id="5305265301917549162">📎</tg-emoji>',
     
-    # EMOJI BỔ SUNG
     "EYES": '<tg-emoji emoji-id="5210956306952758910">👀</tg-emoji>',
     "COMET": '<tg-emoji emoji-id="5224607267797606837">☄️</tg-emoji>',
     "SHOPPING_BAG": '<tg-emoji emoji-id="5294167145079395967">🛍</tg-emoji>',
@@ -377,10 +376,27 @@ async def is_maintenance():
     res = await db_query("SELECT value FROM settings WHERE key='maintenance'", fetchone=True)
     return bool(res and res[0] == "1")
 
+# ============================================================
+# HÀM TẠO CAPTCHA PHÉP TÍNH (CỘNG, TRỪ, NHÂN) ĐƠN GIẢN
+# ============================================================
 def generate_random_captcha():
-    chars = string.ascii_letters + string.digits
-    captcha_text = ''.join(random.choices(chars, k=9))
-    return captcha_text, captcha_text
+    op = random.choice(["+", "-", "*"])
+    if op == "+":
+        a = random.randint(1, 50)
+        b = random.randint(1, 50)
+        ans = a + b
+    elif op == "-":
+        a = random.randint(10, 50)
+        b = random.randint(1, a)  # Tránh âm
+        ans = a - b
+    else:  # "*"
+        a = random.randint(1, 10)
+        b = random.randint(1, 10)
+        ans = a * b
+    
+    display_text = f"{a} {op} {b} = ?"
+    answer_str = str(ans)
+    return display_text, answer_str
 
 def generate_captcha_image_bytes(display_text: str) -> bytes:
     img_width, img_height = 420, 160
@@ -393,10 +409,10 @@ def generate_captcha_image_bytes(display_text: str) -> bytes:
         draw.point((rx1, ry1), fill=(random.randint(50, 150), random.randint(50, 150), random.randint(100, 200)))
 
     try:
-        font = ImageFont.truetype("arial.ttf", 38)
+        font = ImageFont.truetype("arial.ttf", 42)
     except IOError:
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
         except IOError:
             font = ImageFont.load_default()
 
@@ -590,9 +606,9 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
     
     caption = (f"{message_text}\n\n" if message_text else "")
     caption += (
-        f"{E['NEW_SHIELD']} <b>HỆ THỐNG XÁC MINH CAPTCHA VIP</b> {E['NEW_CROWN']}\n"
+        f"{E['NEW_SHIELD']} <b>HỆ THỐNG XÁC MINH CAPTCHA PHÉP TÍNH</b> {E['NEW_CROWN']}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"{E['NEW_WARN1']} <b>Yêu cầu:</b> Nhập chính xác <b>9 ký tự</b> (chữ hoa/thường & số) có trong ảnh bên trên.\n\n"
+        f"{E['NEW_WARN1']} <b>Yêu cầu:</b> Tính toán kết quả phép tính hiển thị trong ảnh và gửi số kết quả vào đây.\n\n"
         f"{E['NEW_PIN']} Thời gian hiệu lực: ⏳ <b>300 giây</b>\n"
         f"{E['NEW_FIRE']} Số lần thử còn lại: {E['NEW_CHECK']} <b>3 lần</b>"
     )
@@ -696,7 +712,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
                 text=(
                     f"{E['NEW_EXCL']} <b>BẠN ĐÃ BỊ KHÓA TÀI KHOẢN VĨNH VIỄN!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['NEW_WARN1']} Lý do: Nhập sai mã Captcha quá 3 lần cho phép."
+                    f"{E['NEW_WARN1']} Lý do: Nhập sai kết quả phép tính quá 3 lần cho phép."
                 ),
                 parse_mode="HTML",
                 reply_markup=ReplyKeyboardRemove()
@@ -704,7 +720,7 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"{E['NEW_WARN2']} <b>Mã Captcha không chính xác!</b> Số lần thử còn lại: <b>{data['attempts']}</b> lần.",
+                text=f"{E['NEW_WARN2']} <b>Kết quả phép tính không chính xác!</b> Số lần thử còn lại: <b>{data['attempts']}</b> lần.",
                 parse_mode="HTML"
             )
         return True
