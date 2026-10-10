@@ -228,7 +228,8 @@ def _init_db_sync():
             """)
             default_settings = [
                 ('maintenance', '0'), ('verify_phone', '1'), ('verify_ip', '1'),
-                ('verify_channel', '1'), ('verify_captcha', '1'), ('allow_withdraw', '1')
+                ('verify_channel', '1'), ('verify_captcha', '1'), ('allow_withdraw', '1'),
+                ('auto_buy_code', '1')
             ]
             for key, val in default_settings:
                 cursor.execute(
@@ -1111,6 +1112,84 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data or ""
     try: await query.answer()
     except Exception: pass
+    
+    if data.startswith("approve_code_"):
+        if user.id not in ADMIN_IDS:
+            await query.answer("Bạn không có quyền thực hiện thao tác này!", show_alert=True)
+            return
+        try:
+            target_user_id = int(data.replace("approve_code_", ""))
+        except ValueError:
+            return
+
+        def process_admin_approve(cursor):
+            cursor.execute("SELECT balance FROM users WHERE user_id=%s FOR UPDATE", (target_user_id,))
+            u_row = cursor.fetchone()
+            if not u_row or u_row[0] < CODE_PRICE:
+                return "NOT_ENOUGH_BALANCE"
+            cursor.execute("SELECT id, code_val FROM code_stock WHERE is_used=0 ORDER BY id ASC LIMIT 1 FOR UPDATE")
+            stock_item = cursor.fetchone()
+            if not stock_item:
+                return "OUT_OF_STOCK"
+            code_stock_id, code_val = stock_item
+            cursor.execute("UPDATE users SET balance = balance - %s WHERE user_id=%s", (CODE_PRICE, target_user_id))
+            cursor.execute("UPDATE code_stock SET is_used=1 WHERE id=%s", (code_stock_id,))
+            details = f"Code: {code_val}"
+            cursor.execute(
+                "INSERT INTO transactions (user_id, type, amount, status, created_at, details) VALUES (%s, %s, %s, %s, %s, %s)",
+                (target_user_id, f"Mua Code {CODE_PRICE}đ", CODE_PRICE, "Thành công", get_now_str(), details)
+            )
+            return code_val
+
+        res = await db_transaction(process_admin_approve)
+        if res == "NOT_ENOUGH_BALANCE":
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ <b>Đã từ chối/Lỗi: Người dùng không đủ số dư.</b>", parse_mode="HTML")
+            return
+        if res == "OUT_OF_STOCK":
+            await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ <b>Kho code hiện đã hết!</b>", parse_mode="HTML")
+            return
+
+        success_text = (
+            f"{E['LOVE_FACE']} MUA CODE THÀNH CÔNG! {E['FIRE']}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{E['MONEY']} Số tiền mua: <b>{CODE_PRICE:,}đ</b>\n"
+            f"{E['CARD']} Mã Code: <code>{res}</code>\n"
+            f"{E['STAR']} Giá trị Code: <b>7.777-15.888</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{E['SHIELD']} 📌 QUY ĐỊNH SỬ DỤNG & ĐIỀU KIỆN RÚT TIỀN\n\n"
+            f"1️⃣ Điều kiện cược: Hoàn thành đủ 1 vòng cược theo giá trị code để đáp ứng điều kiện rút tiền.\n\n"
+            f"2️⃣ Tài khoản chưa có lịch sử nạp trên 50K: Cần nạp tối thiểu 50.000đ và hoàn thành mức cược 50.000đ (X1 vòng cược) trước khi thực hiện rút tiền.\n\n"
+            f"3️⃣ Tài khoản đã có lịch sử nạp trên 50K: Được rút tiền từ code sau khi hoàn thành các điều kiện cược theo quy định.\n\n"
+            f"4️⃣ Giới hạn nhập code: Không cộng dồn code và chỉ được nhập tối đa 5 code từ bot mỗi ngày.\n\n"
+            f"5️⃣ Code từ sự kiện khác: Không thuộc giới hạn 5 code/ngày của bot; việc sử dụng vẫn tuân theo thể lệ riêng của từng sự kiện.\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{E['WARN']} ⚠️ LƯU Ý QUAN TRỌNG\n"
+            f"Vui lòng đọc kỹ các điều kiện trước khi sử dụng code để nắm rõ quy định và đảm bảo quyền lợi của mình.\n\n"
+            f"💖 Chúc anh em trải nghiệm vui vẻ và may mắn!"
+        )
+        try:
+            await context.bot.send_message(chat_id=target_user_id, text=success_text, parse_mode="HTML")
+        except Exception:
+            pass
+
+        await query.edit_message_caption(caption=f"{query.message.caption}\n\n{E['CHECK']} <b>ĐÃ ĐƯỢC ADMIN DUYỆT THÀNH CÔNG!</b>", parse_mode="HTML")
+        return
+
+    if data.startswith("reject_code_"):
+        if user.id not in ADMIN_IDS:
+            await query.answer("Bạn không có quyền thực hiện thao tác này!", show_alert=True)
+            return
+        try:
+            target_user_id = int(data.replace("reject_code_", ""))
+        except ValueError:
+            return
+        try:
+            await context.bot.send_message(chat_id=target_user_id, text=f"{E['CROSS']} <b>Đơn mua code của bạn đã bị Admin từ chối!</b>", parse_mode="HTML")
+        except Exception:
+            pass
+        await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ <b>ĐÃ BỊ TỪ CHỐI BỞI ADMIN!</b>", parse_mode="HTML")
+        return
+
     if not await get_verify_setting("allow_withdraw") and user.id not in ADMIN_IDS:
         await query.edit_message_text(f"{E['CROSS']} <b>Tính năng rút tiền đang bị khóa bởi Hệ thống!</b>", parse_mode="HTML")
         return
@@ -1134,6 +1213,38 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
             return
+
+        is_auto = await get_verify_setting("auto_buy_code")
+        if not is_auto:
+            if balance < CODE_PRICE:
+                await query.edit_message_text(f"{E['CROSS']} <b>Số dư không đủ!</b>", parse_mode="HTML")
+                return
+            for admin_id in ADMIN_IDS:
+                try:
+                    admin_markup = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("✅ Duyệt", callback_data=f"approve_code_{user.id}"),
+                         InlineKeyboardButton("❌ Từ chối", callback_data=f"reject_code_{user.id}")]
+                    ])
+                    await context.bot.send_message(
+                        chat_id=admin_id,
+                        text=(
+                            f"{E['WARN']} <b>CÓ ĐƠN MUA CODE MỚI CHỜ DUYỆT!</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━\n"
+                            f"👤 <b>User ID:</b> <code>{user.id}</code>\n"
+                            f"👤 <b>Username:</b> @{user.username or 'Không có'}\n"
+                            f"💰 <b>Số tiền:</b> <code>{CODE_PRICE:,}đ</code>"
+                        ),
+                        reply_markup=admin_markup,
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+            await query.edit_message_text(
+                f"{E['HOURGLASS']} <b>Đơn mua code của bạn đã được gửi đến Admin!</b>\nVui lòng chờ Admin duyệt, hệ thống sẽ trả mã code khi được duyệt.",
+                parse_mode="HTML"
+            )
+            return
+
         def process_buy_code(cursor):
             cursor.execute("SELECT id, code_val FROM code_stock WHERE is_used=0 ORDER BY id ASC LIMIT 1 FOR UPDATE")
             stock_item = cursor.fetchone()
@@ -1162,18 +1273,25 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif result == "NOT_ENOUGH_BALANCE":
             await query.edit_message_text(f"{E['CROSS']} <b>Số dư không đủ!</b>", parse_mode="HTML")
         else:
-            await query.edit_message_text(
-                f"{E['LOVE_FACE']} <b>MUA CODE THÀNH CÔNG!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['LIKE']} <b>Số Tiền Mua:</b> {CODE_PRICE:,}đ\n"
-                f"{E['RIGHT']} <b>Mã Code:</b> <code>{result}</code>\n\n"
-                f"{E['BANDAGE']} <b>Quy Định Rút Code</b>\n"
-                f"{E['NUM_4']} Cược Đủ 1 Vòng Cược Số Tiền Code Là Đủ Điều Kiện Rút Tiền\n"
-                f"{E['NUM_5']} Những Tài Khoản Nào Chưa Có Lịch Sử Nạp Trên 50K Muốn Rút Thì Yêu Cầu Nạp 50K Và Cược 50K ( X1 VC )\n"
-                f"{E['NUM_6']} Tài Khoản Nào Đã Có Lịch Sử Nạp Trên 50K Rồi Thì Code Lên Rút Thoải Mãi\n"
-                f"{E['NUM_7']} Không Được Dồn Code Và Không Được Nhập Quá 5 Code Trên 1 Ngày ( Code Từ Bot Không Cấm Nhập Code Từ Sự Kiện Khác )",
-                parse_mode="HTML"
+            success_text_auto = (
+                f"{E['LOVE_FACE']} MUA CODE THÀNH CÔNG! {E['FIRE']}\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"{E['MONEY']} Số tiền mua: <b>{CODE_PRICE:,}đ</b>\n"
+                f"{E['CARD']} Mã Code: <code>{result}</code>\n"
+                f"{E['STAR']} Giá trị Code: <b>7.777-15.888</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"{E['SHIELD']} 📌 QUY ĐỊNH SỬ DỤNG & ĐIỀU KIỆN RÚT TIỀN\n\n"
+                f"1️⃣ Điều kiện cược: Hoàn thành đủ 1 vòng cược theo giá trị code để đáp ứng điều kiện rút tiền.\n\n"
+                f"2️⃣ Tài khoản chưa có lịch sử nạp trên 50K: Cần nạp tối thiểu 50.000đ và hoàn thành mức cược 50.000đ (X1 vòng cược) trước khi thực hiện rút tiền.\n\n"
+                f"3️⃣ Tài khoản đã có lịch sử nạp trên 50K: Được rút tiền từ code sau khi hoàn thành các điều kiện cược theo quy định.\n\n"
+                f"4️⃣ Giới hạn nhập code: Không cộng dồn code và chỉ được nhập tối đa 5 code từ bot mỗi ngày.\n\n"
+                f"5️⃣ Code từ sự kiện khác: Không thuộc giới hạn 5 code/ngày của bot; việc sử dụng vẫn tuân theo thể lệ riêng của từng sự kiện.\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"{E['WARN']} ⚠️ LƯU Ý QUAN TRỌNG\n"
+                f"Vui lòng đọc kỹ các điều kiện trước khi sử dụng code để nắm rõ quy định và đảm bảo quyền lợi của mình.\n\n"
+                f"💖 Chúc anh em trải nghiệm vui vẻ và may mắn!"
             )
+            await query.edit_message_text(success_text_auto, parse_mode="HTML")
 
 def is_admin(update: Update):
     return bool(update.effective_user and update.effective_user.id in ADMIN_IDS)
@@ -1184,15 +1302,17 @@ async def build_admin_menu():
     st_channel = await get_verify_setting("verify_channel")
     st_captcha = await get_verify_setting("verify_captcha")
     st_withdraw = await get_verify_setting("allow_withdraw")
+    st_auto_buy = await get_verify_setting("auto_buy_code")
 
     btn_phone = InlineKeyboardButton(f"📱 Xác minh SĐT: {'🟢 BẬT' if st_phone else '🔴 TẮT'}", callback_data="toggle_verify_phone")
     btn_ip = InlineKeyboardButton(f"🌐 Xác minh IP Mini App: {'🟢 BẬT' if st_ip else '🔴 TẮT'}", callback_data="toggle_verify_ip")
     btn_channel = InlineKeyboardButton(f"📢 Check Kênh/Nhóm: {'🟢 BẬT' if st_channel else '🔴 TẮT'}", callback_data="toggle_verify_channel")
     btn_captcha = InlineKeyboardButton(f"🧩 Check CAPTCHA: {'🟢 BẬT' if st_captcha else '🔴 TẮT'}", callback_data="toggle_verify_captcha")
     btn_withdraw = InlineKeyboardButton(f"💳 Tính năng Rút Tiền: {'🟢 BẬT' if st_withdraw else '🔴 TẮT'}", callback_data="toggle_allow_withdraw")
+    btn_auto_buy = InlineKeyboardButton(f"⚡ Tự động Mua Code: {'🟢 BẬT' if st_auto_buy else '🔴 TẮT'}", callback_data="toggle_auto_buy_code")
     btn_verify_all = InlineKeyboardButton(f"🔄 Xác Minh Toàn Bộ Thành Viên", callback_data="admin_verify_all")
 
-    buttons = [[btn_phone], [btn_ip], [btn_channel], [btn_captcha], [btn_withdraw], [btn_verify_all]]
+    buttons = [[btn_phone], [btn_ip], [btn_channel], [btn_captcha], [btn_withdraw], [btn_auto_buy], [btn_verify_all]]
     text = (
         f"{E['GEAR']} <b>BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
@@ -1226,6 +1346,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_verify_channel": "verify_channel",
         "toggle_verify_captcha": "verify_captcha",
         "toggle_allow_withdraw": "allow_withdraw",
+        "toggle_auto_buy_code": "auto_buy_code",
     }
     if data in key_map:
         setting_key = key_map[data]
@@ -2111,7 +2232,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
-    app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^buycode_"))
+    app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"))
     
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
@@ -2126,7 +2247,7 @@ def main():
         
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
-    logger.info("🤖 Bot chạy thành công với tính năng check tiểu sử @Lienminhvietnam...")
+    logger.info("🤖 Bot chạy thành công với tính năng check tiểu sử @Lienminhvietnam và duyệt đơn mua code...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
