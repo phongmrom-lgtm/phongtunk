@@ -49,7 +49,7 @@ REQUIRED_CHECK_CHANNELS = [
     "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
     "@hocviencbm", "https://t.me/icbm988", "https://t.me/hit88cm",
-    "https://t.me/hocviencb",
+    "https://t.me/hocviencb", "https://t.me/khosukien9999",
 ]
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
