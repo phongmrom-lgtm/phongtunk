@@ -913,11 +913,13 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
 
             if referrer_id:
+                # Vẫn khoá tài khoản người giới thiệu
                 await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (referrer_id,), commit=True)
                 try:
+                    # Thông báo mới cho người giới thiệu (không còn hiện lý do tiểu sử / ID người được mời)
                     await context.bot.send_message(
                         chat_id=referrer_id,
-                        text=f"🚨 <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n━━━━━━━━━━━━━━━━━━\nLý do: Người bạn giới thiệu (ID: <code>{user.id}</code>) có tiểu sử chứa `@Lienminhvietnam`.",
+                        text="🚨 <b>TÀI KHOẢN CỦA BẠN ĐÃ BỊ KHÓA VĨNH VIỄN!</b>\n━━━━━━━━━━━━━━━━━━\nBuff ref khoá vĩnh viễn, cần hỗ trợ nhắn qua @dgfrutil",
                         parse_mode="HTML"
                     )
                 except Exception:
