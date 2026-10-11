@@ -287,13 +287,29 @@ async def set_verify_setting(key: str, value: bool):
     await db_query("UPDATE settings SET value=%s WHERE key=%s", (val_str, key), commit=True)
 
 
-# Bàn phím dưới màn hình: PHẢI giữ emoji thường (nút bấm không hiển thị emoji động,
-# và menu_handler so khớp chuỗi text của các nút này).
+# ID emoji premium cho 6 nút menu dưới màn hình
+MENU_ICON_IDS = {
+    "account": "5278467510604160626",   # 💰
+    "invite": "5231005931550030290",    # 💸
+    "withdraw": "6188274324156191036",  # 😆
+    "top": "6188266996941985323",       # 🤣
+    "support": "6188179499868229800",   # 🌟
+    "history": "6186110304884101722",   # 🌟
+}
+
+
+# Bàn phím dưới màn hình dùng ICON EMOJI PREMIUM (icon_custom_emoji_id).
+# Chữ trên nút KHÔNG kèm emoji thường (icon premium tự hiện phía trước chữ).
+# menu_handler đã nhận cả dạng không emoji ("Tài Khoản", "Top"...) nên vẫn khớp.
+def _menu_btn(text: str, key: str) -> KeyboardButton:
+    return KeyboardButton(text, api_kwargs={"icon_custom_emoji_id": MENU_ICON_IDS[key]})
+
+
 def get_main_keyboard():
     keyboard = [
-        [KeyboardButton("👤 Tài Khoản"), KeyboardButton("🎁 Mời Bạn Bè")],
-        [KeyboardButton("💳 Rút Code"), KeyboardButton("🔝 Top")],
-        [KeyboardButton("💬 Nhóm Hỗ Trợ"), KeyboardButton("📜 Lịch Sử Giao Dịch")],
+        [_menu_btn("Tài Khoản", "account"), _menu_btn("Mời Bạn Bè", "invite")],
+        [_menu_btn("Rút Code", "withdraw"), _menu_btn("Top", "top")],
+        [_menu_btn("Nhóm Hỗ Trợ", "support"), _menu_btn("Lịch Sử Giao Dịch", "history")],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
