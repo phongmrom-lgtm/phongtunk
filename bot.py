@@ -185,6 +185,30 @@ _EMOJI_DEFS = {
 E = {k: f'<tg-emoji emoji-id="{v[0]}">{v[1]}</tg-emoji>' for k, v in _EMOJI_DEFS.items()}
 EP = {k: v[1] for k, v in _EMOJI_DEFS.items()}
 
+# Emoji thường -> ID emoji premium (dùng để gắn icon cho NÚT INLINE)
+BTN_EMOJI_IDS = {}
+for _k, (_id, _ch) in _EMOJI_DEFS.items():
+    BTN_EMOJI_IDS.setdefault(_ch, _id)
+_BTN_KEYS = sorted(BTN_EMOJI_IDS, key=len, reverse=True)
+
+
+def ebtn(text: str, **kwargs) -> InlineKeyboardButton:
+    """Tạo nút inline: nếu chữ bắt đầu bằng emoji có ID premium thì tách emoji đó
+    ra làm icon_custom_emoji_id (hiện emoji động). Emoji không có ID giữ nguyên là emoji thường."""
+    lead, t = "", text
+    if t.startswith("• "):
+        lead, t = "• ", t[2:]
+    for ch in _BTN_KEYS:
+        if t.startswith(ch):
+            label = (lead + t[len(ch):].strip()).strip()
+            if not label:
+                break
+            api = dict(kwargs.pop("api_kwargs", None) or {})
+            api["icon_custom_emoji_id"] = BTN_EMOJI_IDS[ch]
+            return InlineKeyboardButton(label, api_kwargs=api, **kwargs)
+    return InlineKeyboardButton(text, **kwargs)
+
+
 # ============================================================
 # 4. TRẠNG THÁI CHẠY & LOGGING
 # ============================================================
@@ -1521,13 +1545,13 @@ async def build_admin_menu():
         return "🟢 BẬT" if v else "🔴 TẮT"
 
     buttons = [
-        [InlineKeyboardButton(f"📱 Xác minh SĐT: {state(st_phone)}", callback_data="toggle_verify_phone")],
-        [InlineKeyboardButton(f"🌐 Xác minh IP Mini App: {state(st_ip)}", callback_data="toggle_verify_ip")],
-        [InlineKeyboardButton(f"📢 Check Kênh/Nhóm: {state(st_channel)}", callback_data="toggle_verify_channel")],
-        [InlineKeyboardButton(f"🧩 Check CAPTCHA: {state(st_captcha)}", callback_data="toggle_verify_captcha")],
-        [InlineKeyboardButton(f"💳 Tính năng Rút Tiền: {state(st_withdraw)}", callback_data="toggle_allow_withdraw")],
-        [InlineKeyboardButton(f"⚡ Tự động Mua Code: {state(st_auto_buy)}", callback_data="toggle_auto_buy_code")],
-        [InlineKeyboardButton("🔄 Xác Minh Toàn Bộ Thành Viên", callback_data="admin_verify_all")],
+        [ebtn(f"📱 Xác minh SĐT: {state(st_phone)}", callback_data="toggle_verify_phone")],
+        [ebtn(f"🌐 Xác minh IP Mini App: {state(st_ip)}", callback_data="toggle_verify_ip")],
+        [ebtn(f"📢 Check Kênh/Nhóm: {state(st_channel)}", callback_data="toggle_verify_channel")],
+        [ebtn(f"🧩 Check CAPTCHA: {state(st_captcha)}", callback_data="toggle_verify_captcha")],
+        [ebtn(f"💳 Tính năng Rút Tiền: {state(st_withdraw)}", callback_data="toggle_allow_withdraw")],
+        [ebtn(f"⚡ Tự động Mua Code: {state(st_auto_buy)}", callback_data="toggle_auto_buy_code")],
+        [ebtn("🔄 Xác Minh Toàn Bộ Thành Viên", callback_data="admin_verify_all")],
     ]
     text = (
         f"{E['GEAR']} <b>BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN</b>\n"
@@ -1582,23 +1606,23 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
 async def adm_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update): return
 
-    # Text của nút bấm dùng EP (emoji thường) vì nút không hiển thị được emoji động
+    # Nút dùng ebtn: emoji có ID premium sẽ hiện emoji động
     keyboard = [
-        [InlineKeyboardButton(f"{EP['MONEY_FLY']} /tb (Gửi thông báo)", callback_data="adm_step_tb"),
-         InlineKeyboardButton(f"{EP['PLUS']} /addcode (Thêm mã code)", callback_data="adm_step_addcode")],
-        [InlineKeyboardButton(f"{EP['CROWN']} /nap (Cộng tiền user)", callback_data="adm_step_nap"),
-         InlineKeyboardButton(f"{EP['WARN']} /tru (Trừ tiền user)", callback_data="adm_step_tru")],
-        [InlineKeyboardButton(f"{EP['CLIP']} /info (Xem chi tiết user)", callback_data="adm_step_info"),
-         InlineKeyboardButton(f"{EP['SHIELD']} /dl (Kiểm tra ID chi tiết)", callback_data="adm_step_dl")],
-        [InlineKeyboardButton(f"{EP['CROSS']} /ban (Cấm vĩnh viễn)", callback_data="adm_step_ban"),
-         InlineKeyboardButton(f"{EP['CHECK']} /moban (Gỡ cấm user)", callback_data="adm_step_moban")],
-        [InlineKeyboardButton(f"{EP['WARN']} /cam (Cấm rút code)", callback_data="adm_step_cam"),
-         InlineKeyboardButton(f"{EP['RIGHT']} /mocam (Gỡ cấm rút code)", callback_data="adm_step_mocam")],
-        [InlineKeyboardButton(f"{EP['FIRE']} /kho (Thống kê kho code)", callback_data="adm_act_kho"),
-         InlineKeyboardButton(f"{EP['TOP']} /dscode (Danh sách code)", callback_data="adm_act_dscode")],
-        [InlineKeyboardButton(f"{EP['RIGHT']} /tong (Thống kê thành viên)", callback_data="adm_act_tong"),
-         InlineKeyboardButton(f"{EP['GEAR']} /baotri (Bật/Tắt bảo trì)", callback_data="adm_act_baotri")],
-        [InlineKeyboardButton(f"{EP['REFRESH']} /xmtb (Reset xác minh toàn bộ)", callback_data="adm_act_xmtb")],
+        [ebtn(f"{EP['MONEY_FLY']} /tb (Gửi thông báo)", callback_data="adm_step_tb"),
+         ebtn(f"{EP['PLUS']} /addcode (Thêm mã code)", callback_data="adm_step_addcode")],
+        [ebtn(f"{EP['CROWN']} /nap (Cộng tiền user)", callback_data="adm_step_nap"),
+         ebtn(f"{EP['WARN']} /tru (Trừ tiền user)", callback_data="adm_step_tru")],
+        [ebtn(f"{EP['CLIP']} /info (Xem chi tiết user)", callback_data="adm_step_info"),
+         ebtn(f"{EP['SHIELD']} /dl (Kiểm tra ID chi tiết)", callback_data="adm_step_dl")],
+        [ebtn(f"{EP['CROSS']} /ban (Cấm vĩnh viễn)", callback_data="adm_step_ban"),
+         ebtn(f"{EP['CHECK']} /moban (Gỡ cấm user)", callback_data="adm_step_moban")],
+        [ebtn(f"{EP['WARN']} /cam (Cấm rút code)", callback_data="adm_step_cam"),
+         ebtn(f"{EP['RIGHT']} /mocam (Gỡ cấm rút code)", callback_data="adm_step_mocam")],
+        [ebtn(f"{EP['FIRE']} /kho (Thống kê kho code)", callback_data="adm_act_kho"),
+         ebtn(f"{EP['TOP']} /dscode (Danh sách code)", callback_data="adm_act_dscode")],
+        [ebtn(f"{EP['RIGHT']} /tong (Thống kê thành viên)", callback_data="adm_act_tong"),
+         ebtn(f"{EP['GEAR']} /baotri (Bật/Tắt bảo trì)", callback_data="adm_act_baotri")],
+        [ebtn(f"{EP['REFRESH']} /xmtb (Reset xác minh toàn bộ)", callback_data="adm_act_xmtb")],
     ]
 
     msg = (
@@ -1879,16 +1903,16 @@ def build_admin_page(page: int):
         f"<i>Bấm nút bên dưới để thao tác. Lệnh cần dữ liệu sẽ hỏi bạn nhập.</i>"
     )
 
-    # Hàng tab chuyển nhanh giữa các trang
+    # Hàng tab chuyển nhanh giữa các trang (icon + số trang; trang đang mở có dấu •)
     rows = [[
-        InlineKeyboardButton(("• " if i == page else "") + p["icon"], callback_data=f"amp_{i}")
+        ebtn(("• " if i == page else "") + f"{p['icon']} {i + 1}", callback_data=f"amp_{i}")
         for i, p in enumerate(ADMIN_PAGES)
     ]]
 
     row = []
     for label, mode, cmd in pg["items"]:
         cb = "amset" if mode == "s" else f"am{mode}_{cmd}"
-        row.append(InlineKeyboardButton(label, callback_data=cb))
+        row.append(ebtn(label, callback_data=cb))
         if len(row) == 2:
             rows.append(row)
             row = []
@@ -1897,12 +1921,12 @@ def build_admin_page(page: int):
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Trước", callback_data=f"amp_{page - 1}"))
-    nav.append(InlineKeyboardButton(f"{page + 1}/{total}", callback_data=f"amp_{page}"))
+        nav.append(ebtn("⬅️ Trước", callback_data=f"amp_{page - 1}"))
+    nav.append(ebtn(f"{page + 1}/{total}", callback_data=f"amp_{page}"))
     if page < total - 1:
-        nav.append(InlineKeyboardButton("Sau ➡️", callback_data=f"amp_{page + 1}"))
+        nav.append(ebtn("Sau ➡️", callback_data=f"amp_{page + 1}"))
     rows.append(nav)
-    rows.append([InlineKeyboardButton("❌ Đóng", callback_data="amclose")])
+    rows.append([ebtn("❌ Đóng", callback_data="amclose")])
 
     return text, InlineKeyboardMarkup(rows)
 
@@ -1963,8 +1987,8 @@ async def admin_pages_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     elif prefix == "amc":    # hỏi xác nhận
         warn = ADMIN_CONFIRM_TEXT.get(cmd, "THỰC HIỆN LỆNH NÀY")
         markup = InlineKeyboardMarkup([[
-            InlineKeyboardButton("✅ Xác nhận", callback_data=f"amy_{cmd}"),
-            InlineKeyboardButton("↩️ Quay lại", callback_data=f"amp_{_admin_page_of(cmd)}"),
+            ebtn("✅ Xác nhận", callback_data=f"amy_{cmd}"),
+            ebtn("↩️ Quay lại", callback_data=f"amp_{_admin_page_of(cmd)}"),
         ]])
         try:
             await query.edit_message_text(
