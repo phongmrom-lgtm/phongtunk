@@ -66,65 +66,104 @@ REFERRAL_REWARD = 1000
 # ============================================================
 _EMOJI_DEFS = {
     "CHECK": ("5206607081334906820", "✔️"),
-    "REFRESH": ("5375338737028841420", "🔄"),
-    "TOP": ("5415655814079723871", "🔝"),
-    "WARN": ("5420323339723881652", "⚠️"),
-    "GLOBE": ("5447410659077661506", "🌐"),
+    "CHECK2": ("6156849229567365992", "✅"),
     "CROSS": ("5210952531676504517", "❌"),
-    "MONEY_FLY": ("5231005931550030290", "💸"),
-    "COIN": ("5402186569006210455", "💱"),
-    "PLUS": ("5397916757333654639", "➕"),
-    "CROWN": ("5217822164362739968", "👑"),
-    "CLIP": ("5305265301917549162", "📎"),
-    "GEAR": ("5341715473882955310", "⚙️"),
-    "SPEAKER": ("5388632425314140043", "🔈"),
+    "WARN": ("5420323339723881652", "⚠️"),
+    "EXCL": ("5373059848856421989", "❗️"),
+    "INFO": ("5334544901428229844", "ℹ️"),
+    "REFRESH": ("5375338737028841420", "🔄"),
+    "REFRESH2": ("5226702984204797593", "🔄"),
     "HOURGLASS": ("5386367538735104399", "⌛"),
-    "MAIL": ("5253742260054409879", "✉️"),
+    "GEAR": ("5341715473882955310", "⚙️"),
+    "SHIELD": ("5197288647275071607", "🛡"),
+    "TOP": ("5415655814079723871", "🔝"),
+    "TOP2": ("5463071033256848094", "🔝"),
+    "UP": ("5463122435425448565", "⬆️"),
     "DOWN": ("5406745015365943482", "⬇️"),
+    "RIGHT": ("5429651785352501917", "↗️"),
+    "ARROW_LEFT_RIGHT": ("5271837459783638319", "↔️"),
+    "PLUS": ("5397916757333654639", "➕"),
+    "MONEY": ("5278467510604160626", "💰"),
+    "MONEY2": ("5224257782013769471", "💰"),
+    "MONEY_FLY": ("5231005931550030290", "💸"),
+    "MONEY_FACE": ("5427107837568360763", "🤑"),
+    "COIN": ("5402186569006210455", "💱"),
+    "CARD": ("5240066289614987080", "💳"),
+    "CARD2": ("5445353829304387411", "💳"),
+    "BANK": ("5332455502917949981", "🏦"),
+    "BAG": ("5294167145079395967", "🛍"),
+    "BAG2": ("5406683434124859552", "🛍"),
+    "CROWN": ("5217822164362739968", "👑"),
+    "CROWN2": ("5433758796289685818", "👑"),
     "GOLD_MEDAL": ("5440539497383087970", "🥇"),
     "SILVER_MEDAL": ("5447203607294265305", "🥈"),
     "BRONZE_MEDAL": ("5453902265922376865", "🥉"),
+    "STAR": ("6229012024534242176", "🌟"),
+    "STAR2": ("5267500801240092311", "⭐"),
+    "FIRE": ("6309824960944673394", "🔥"),
+    "ROCKET": ("5195033767969839232", "🚀"),
+    "TARGET": ("5256131095094652290", "🎯"),
+    "PHONE": ("5285238101344544669", "📞"),
+    "MAIL": ("5253742260054409879", "✉️"),
+    "INBOX": ("5443127283898405358", "📥"),
+    "OUTBOX": ("5445355530111437729", "📤"),
+    "SPEAKER": ("5388632425314140043", "🔈"),
+    "CLIP": ("5305265301917549162", "📎"),
+    "GLOBE": ("5447410659077661506", "🌐"),
+    "DEV": ("6066579956287148786", "👨‍💻"),
+    "LIKE": ("6192940307907088992", "👍"),
+    "LOVE_FACE": ("5240410604258206563", "🥰"),
+    "LOVE_FACE2": ("6318677150534734288", "🥰"),
+    "HEART": ("6273945156341209192", "😍"),
+    "SMILE": ("6138749335438889769", "😀"),
+    "GRIN": ("5377812805695053090", "😃"),
+    "LAUGH": ("6138433913040671508", "😂"),
+    "LAUGH2": ("5463121572137022242", "😂"),
+    "LAUGH_SQUINT": ("5375135722514685501", "😆"),
+    "BLUSH": ("5238015713314086319", "☺️"),
+    "STUCK_OUT": ("6273634436932179409", "😝"),
+    "TONGUE": ("6192771593001767805", "👅"),
+    "SCREAM": ("5253478445983222118", "😱"),
+    "SCREAM2": ("6273875491971667684", "😱"),
+    "BANDAGE": ("6199453007336184702", "😞"),
+    "FIST": ("5375161616872520280", "🤜"),
+    "DANCER": ("5373112999076699207", "💃"),
+    "LIPS": ("5395444514028529554", "🫦"),
     "WOLF": ("6309898817202295364", "🐺"),
     "BANANA": ("6075743256128263137", "🥐"),
-    "CHECK2": ("6156849229567365992", "✅"),
-    "LIKE": ("6192940307907088992", "👍"),
+    "CLOVER": ("6307395821931335527", "🍀"),
+    "MUSIC": ("6235381315005325678", "🎶"),
     "CAR": ("6280407793631498213", "🚗"),
-    "BANDAGE": ("6199453007336184702", "😞"),
-    "INBOX": ("5443127283898405358", "📥"),
-    "BAG": ("5294167145079395967", "🛍"),
-    "BANK": ("5332455502917949981", "🏦"),
-    "ARROW_LEFT_RIGHT": ("5271837459783638319", "↔️"),
-    "RIGHT": ("5429651785352501917", "↗️"),
-    "MONEY": ("5278467510604160626", "💰"),
-    "SHIELD": ("5197288647275071607", "🛡"),
+    "CAR2": ("5282927142651319521", "🚗"),
+    "PLANE": ("5456216132308462012", "✈️"),
+    "TEST_TUBE": ("5294451377425106537", "🧪"),
+    "SNOW": ("5449449325434266744", "❄️"),
+    "COPYRIGHT": ("5323442290708985472", "©"),
     "NUM_4": ("5382054253403577563", "4️⃣"),
     "NUM_5": ("5391197405553107640", "5️⃣"),
     "NUM_6": ("5390966190283694453", "6️⃣"),
     "NUM_7": ("5382132232829804982", "7️⃣"),
     "NUM_8": ("5391038994274329680", "8️⃣"),
     "NUM_9": ("5391234698754138414", "9️⃣"),
-    "DEV": ("6066579956287148786", "👨‍💻"),
-    "LAUGH": ("6138433913040671508", "😂"),
-    "SMILE": ("6138749335438889769", "😀"),
-    "TONGUE": ("6192771593001767805", "👅"),
-    "SCREAM": ("5253478445983222118", "😱"),
-    "BLUSH": ("5238015713314086319", "☺️"),
-    "CARD": ("5240066289614987080", "💳"),
-    "LOVE_FACE": ("5240410604258206563", "🥰"),
-    "CLOVER": ("6307395821931335527", "🍀"),
-    "FIRE": ("6309824960944673394", "🔥"),
-    "MUSIC": ("6235381315005325678", "🎶"),
-    "STAR": ("6229012024534242176", "🌟"),
-    "HEART": ("6273945156341209192", "😍"),
-    "STUCK_OUT": ("6273634436932179409", "😝"),
-    "OUTBOX": ("5445355530111437729", "📤"),
-    "TARGET": ("5256131095094652290", "🎯"),
-    "PHONE": ("5285238101344544669", "📞"),
-    "INFO": ("5334544901428229844", "ℹ️"),
-    "EXCL": ("5373059848856421989", "❗️"),
-    "ROCKET": ("5195033767969839232", "🚀"),
-    "STAR2": ("5267500801240092311", "⭐"),
-    "SNOW": ("5449449325434266744", "❄️"),
+    "ABC_01": ("5357372145800334358", "🔠"),
+    "ABC_02": ("5357051925923648418", "🔠"),
+    "ABC_03": ("5359451970828520680", "🔠"),
+    "ABC_04": ("5359648590136361323", "🔠"),
+    "ABC_05": ("5361794927028096622", "🔠"),
+    "ABC_06": ("5359293061333535340", "🔠"),
+    "ABC_07": ("5361583129305829231", "🔠"),
+    "ABC_08": ("5359299520964348572", "🔠"),
+    "ABC_09": ("5359552223955145217", "🔠"),
+    "ABC_10": ("5361888806423251732", "🔠"),
+    "ABC_11": ("5359549406456598104", "🔠"),
+    "ABC_12": ("5359354676934364278", "🔠"),
+    "ABC_13": ("5361625615122319358", "🔠"),
+    "ABC_14": ("5359808152466378462", "🔠"),
+    "ABC_15": ("5375319963726793021", "🔠"),
+    "ABC_16": ("5361767233078973238", "🔠"),
+    "ABC_17": ("5361871785467857730", "🔠"),
+    "ABC_18": ("5364023048687078741", "🔠"),
+    "ABC_19": ("5364149466754468020", "🔠"),
 }
 E = {k: f'<tg-emoji emoji-id="{v[0]}">{v[1]}</tg-emoji>' for k, v in _EMOJI_DEFS.items()}
 EP = {k: v[1] for k, v in _EMOJI_DEFS.items()}
@@ -441,7 +480,7 @@ async def handle_anti_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             seconds = remaining_seconds % 60
             await message.reply_text(
                 f"{E['CROSS']} <b>BẠN ĐÃ BỊ TẠM CẤM!</b>\n"
-                f"{E['BANDAGE']} Vui lòng chờ: <b>{minutes} phút {seconds} giây</b>\n"
+                f"{E['HOURGLASS']} Vui lòng chờ: <b>{minutes} phút {seconds} giây</b>\n"
                 f"{E['WARN']} Lý do: <b>Spam tin nhắn quá nhanh.</b>",
                 parse_mode="HTML"
             )
@@ -490,12 +529,12 @@ async def ensure_user_exists(update: Update):
 
 async def prompt_phone_verification(message_or_bot, user_id):
     msg = (
-        f"{E['CLIP']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
+        f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
         f"{E['WARN']} <b>Yêu cầu tài khoản hợp lệ:</b>\n"
-        f"{E['CHECK']} Số điện thoại Việt Nam (+84)\n"
-        f"{E['CHECK']} Tên hiển thị không quá 20 ký tự\n"
-        f"{E['CHECK']} Có username (@)\n"
-        f"{E['CHECK']} Có ảnh đại diện\n"
+        f"{E['CHECK2']} Số điện thoại Việt Nam (+84)\n"
+        f"{E['CHECK2']} Tên hiển thị không quá 20 ký tự\n"
+        f"{E['CHECK2']} Có username (@)\n"
+        f"{E['CHECK2']} Có ảnh đại diện\n"
         f"{E['RIGHT']} <b>Nhấn nút bên dưới để chia sẻ số điện thoại:</b>"
     )
     if hasattr(message_or_bot, "reply_text"):
@@ -978,7 +1017,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=ref_id,
                         text=(
                             f"{E['LOVE_FACE']} <b>THƯỞNG MỜI BẠN BÈ!</b>\n"
-                            f"{E['LIKE']} Bạn nhận được <b>+{REFERRAL_REWARD:,}đ</b>\n"
+                            f"{E['MONEY_FLY']} Bạn nhận được <b>+{REFERRAL_REWARD:,}đ</b>\n"
                             f"{E['RIGHT']} Từ người dùng: <b>{username_str}</b>"
                         ),
                         parse_mode="HTML"
@@ -991,7 +1030,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=user.id,
         text=(
-            f"{E['LIKE']} <b>XÁC MINH THÀNH CÔNG!</b>\n"
+            f"{E['CHECK2']} <b>XÁC MINH THÀNH CÔNG!</b>\n"
             f"{E['TOP']} <b>Chào mừng bạn đã gia nhập hệ thống Bot VIP!</b>"
         ),
         reply_markup=get_main_keyboard(), parse_mode="HTML",
@@ -1097,10 +1136,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{E['LOVE_FACE']} <b>THÔNG TIN TÀI KHOẢN VIP</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"{E['RIGHT']} <b>ID:</b> <code>{user.id}</code>\n"
-            f"{E['CLIP']} <b>SĐT:</b> <code>{phone_str}</code>\n"
+            f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
             f"{E['GLOBE']} <b>IP:</b> <code>{ip_str}</code>\n"
-            f"{E['LIKE']} <b>Số dư:</b> <code>{balance:,}đ</code>\n"
-            f"{E['TOP']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
+            f"{E['MONEY']} <b>Số dư:</b> <code>{balance:,}đ</code>\n"
+            f"{E['ROCKET']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
             f"{E['CARD']} <b>Đã dùng mua Code:</b> <code>{total_withdraw:,}đ</code>"
         )
         await message.reply_text(msg, parse_mode="HTML")
@@ -1121,8 +1160,8 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"━━━━━━━━━━━━━━━━━━\n"
             f"{E['RIGHT']} <b>Link giới thiệu của bạn:</b>\n"
             f"<code>{ref_link}</code>\n\n"
-            f"{E['BANDAGE']} <b>Thể lệ nhận thưởng:</b>\n"
-            f"• {E['LIKE']} Nhận ngay: <b>+{REFERRAL_REWARD:,}đ</b> / lượt mời thành công.\n"
+            f"{E['INFO']} <b>Thể lệ nhận thưởng:</b>\n"
+            f"• {E['MONEY_FLY']} Nhận ngay: <b>+{REFERRAL_REWARD:,}đ</b> / lượt mời thành công.\n"
             f"• {E['RIGHT']} Bạn bè phải hoàn tất các bước xác minh theo yêu cầu hệ thống.\n"
             f"• {E['TOP']} Giá mua Code: <b>{CODE_PRICE:,}đ</b>"
         )
@@ -1152,8 +1191,8 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(msg, parse_mode="HTML")
     elif text in ["Nhóm Hỗ Trợ", "💬 Nhóm Hỗ Trợ"]:
         await message.reply_text(
-            f"{E['SMILE']} <b>NHÓM HỖ TRỢ CHÍNH THỨC:</b>\n{E['RIGHT']} {SUPPORT_GROUP}\n\n"
-            f"{E['CROWN']} <b>ADMIN:</b> @dgfrutil",
+            f"{E['PHONE']} <b>NHÓM HỖ TRỢ CHÍNH THỨC:</b>\n{E['RIGHT']} {SUPPORT_GROUP}\n\n"
+            f"{E['DEV']} <b>ADMIN:</b> @dgfrutil",
             parse_mode="HTML",
         )
     elif text in ["Lịch Sử", "Lịch Sử Giao Dịch", "📜 Lịch Sử Giao Dịch"]:
@@ -1164,13 +1203,13 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not txs:
             await message.reply_text(f"{E['BANDAGE']} <b>Bạn chưa có giao dịch nào.</b>", parse_mode="HTML")
             return
-        msg = f"{E['TOP']} <b>LỊCH SỬ GIAO DỊCH GẦN ĐÂY</b>\n━━━━━━━━━━━━━━━━━━\n\n"
+        msg = f"{E['INBOX']} <b>LỊCH SỬ GIAO DỊCH GẦN ĐÂY</b>\n━━━━━━━━━━━━━━━━━━\n\n"
         for tx_type, amount, status, created_at, details in txs:
             icon = E['LIKE'] if status == "Thành công" else E['CROSS']
             msg += (
                 f"{icon} <b>{tx_type}</b>: <code>{amount:,}đ</code>\n"
                 f"{E['SHIELD']} Chi tiết: <code>{details or 'Không có'}</code>\n"
-                f"{E['BANDAGE']} Thời gian: <code>{created_at}</code>\n"
+                f"{E['HOURGLASS']} Thời gian: <code>{created_at}</code>\n"
                 "----------------------------------\n"
             )
         await message.reply_text(msg, parse_mode="HTML")
@@ -1185,7 +1224,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(
             f"{E['SHIELD']} <b>HỆ THỐNG RÚT CODE TỰ ĐỘNG</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"{E['LIKE']} <b>Số dư hiện tại:</b> <code>{db_user[1]:,}đ</code>\n\n"
+            f"{E['MONEY']} <b>Số dư hiện tại:</b> <code>{db_user[1]:,}đ</code>\n\n"
             f"{E['LOVE_FACE']} Nhấn nút bên dưới để xác nhận mua code giá <b>{CODE_PRICE:,}đ</b>:",
             reply_markup=InlineKeyboardMarkup(buttons), parse_mode="HTML"
         )
@@ -1329,7 +1368,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         text=(
                             f"{E['WARN']} <b>CÓ ĐƠN MUA CODE MỚI CHỜ DUYỆT!</b>\n"
                             f"━━━━━━━━━━━━━━━━━━\n"
-                            f"{E['CROWN']} <b>User ID:</b> <code>{user.id}</code>\n"
+                            f"{E['TARGET']} <b>User ID:</b> <code>{user.id}</code>\n"
                             f"{E['RIGHT']} <b>Username:</b> @{user.username or 'Không có'}\n"
                             f"{E['MONEY']} <b>Số tiền:</b> <code>{CODE_PRICE:,}đ</code>"
                         ),
@@ -1418,7 +1457,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         try: await query.answer("Đã đặt lại xác minh toàn bộ thành công!", show_alert=True)
         except Exception: pass
         await query.message.reply_text(
-            f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH TOÀN BỘ THÀNH VIÊN!</b>\n"
+            f"{E['CHECK2']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH TOÀN BỘ THÀNH VIÊN!</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"Tất cả người dùng sẽ phải xác minh lại từ đầu khi tương tác với Bot.",
             parse_mode="HTML"
@@ -1550,15 +1589,15 @@ async def build_user_info_text(target_id: int):
         f"{E['LOVE_FACE']} <b>THÔNG TIN CHI TIẾT USER</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"{E['RIGHT']} ID: <code>{u[0]}</code>\n"
-        f"{E['CLIP']} SĐT: <code>{phone_val}</code>\n"
+        f"{E['PHONE']} SĐT: <code>{phone_val}</code>\n"
         f"{E['GLOBE']} IP: <code>{ip_val}</code>\n"
-        f"{E['TOP']} Username: {username}\n"
-        f"{E['LIKE']} Số dư: <code>{u[2]:,}đ</code>\n"
+        f"{E['CROWN2']} Username: {username}\n"
+        f"{E['MONEY']} Số dư: <code>{u[2]:,}đ</code>\n"
         f"{E['RIGHT']} Khách giới thiệu: <code>{referrer}</code>\n"
-        f"{E['TOP']} Đã mời thành công: <code>{invited_count}</code> người\n"
+        f"{E['ROCKET']} Đã mời thành công: <code>{invited_count}</code> người\n"
         f"{E['CROSS']} Khóa TK: <b>{'CÓ' if u[5] else 'KHÔNG'}</b>\n"
-        f"{E['BANDAGE']} Cấm rút code: <b>{'CÓ' if u[6] else 'KHÔNG'}</b>\n"
-        f"{E['BANDAGE']} Tham gia: <code>{u[7]}</code>"
+        f"{E['WARN']} Cấm rút code: <b>{'CÓ' if u[6] else 'KHÔNG'}</b>\n"
+        f"{E['HOURGLASS']} Tham gia: <code>{u[7]}</code>"
     )
 
 
@@ -1643,7 +1682,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if cmd == "/sdall":
             await db_query("UPDATE users SET balance = 0", commit=True)
             await message.reply_text(
-                f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI SỐ DƯ THÀNH CÔNG!</b>\n"
+                f"{E['CHECK2']} <b>ĐÃ ĐẶT LẠI SỐ DƯ THÀNH CÔNG!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"Toàn bộ số dư của tất cả người dùng trong cơ sở dữ liệu đã được đưa về <b>0đ</b>.",
                 parse_mode="HTML"
@@ -1809,7 +1848,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             temp_bans.pop(target_id, None)
 
             await message.reply_text(
-                f"{E['LIKE']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
+                f"{E['CHECK2']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
                 f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha và bỏ qua kiểm tra IP.",
                 parse_mode="HTML"
             )
@@ -1827,7 +1866,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pending_captcha_users.pop(target_id, None)
 
             await message.reply_text(
-                f"{E['LIKE']} <b>ĐÃ MỞ KHÓA CAPTCHA/TÀI KHOẢN CHO ID:</b> <code>{target_id}</code>\n"
+                f"{E['CHECK2']} <b>ĐÃ MỞ KHÓA CAPTCHA/TÀI KHOẢN CHO ID:</b> <code>{target_id}</code>\n"
                 f"• Người dùng có thể tiếp tục thao tác bình thường.",
                 parse_mode="HTML"
             )
@@ -1841,7 +1880,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
             await db_query("UPDATE users SET skip_ip=1 WHERE user_id=%s", (target_id,), commit=True)
-            await message.reply_text(f"{E['LIKE']} Đã thiết lập bỏ qua bước xác minh IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
+            await message.reply_text(f"{E['CHECK2']} Đã thiết lập bỏ qua bước xác minh IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
 
         elif cmd == "/moip":
             if not args:
@@ -1852,12 +1891,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
             await db_query("UPDATE users SET is_banned=0, is_withdraw_banned=1 WHERE user_id=%s", (target_id,), commit=True)
-            await message.reply_text(f"{E['LIKE']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
+            await message.reply_text(f"{E['CHECK2']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
 
         elif cmd == "/xmtb":
             await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
             await message.reply_text(
-                f"{E['LIKE']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
+                f"{E['CHECK2']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
                 parse_mode="HTML"
@@ -1888,7 +1927,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['BANDAGE']} <b>Chưa có lịch sử mã code nào bị xóa!</b>", parse_mode="HTML")
                 return
             msg = (
-                f"{E['TOP']} <b>LỊCH SỬ MÃ CODE ĐÃ XÓA</b>\n"
+                f"{E['INBOX']} <b>LỊCH SỬ MÃ CODE ĐÃ XÓA</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"{E['RIGHT']} <i>Hiển thị 50 mã code đã xóa gần nhất:</i>\n\n"
             )
@@ -1924,8 +1963,8 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ref_bot_link = f"https://t.me/{bot_username}?start={ref_id}"
                     ref_info_text = (
                         f"{E['CHECK2']} <b>NGƯỜI GIỚI THIỆU:</b>\n"
-                        f"{E['TOP']} <b>ID:</b> <code>{ref_user[0]}</code>\n"
-                        f"{E['CLIP']} <b>SĐT:</b> <code>{ref_phone}</code>\n"
+                        f"{E['TARGET']} <b>ID:</b> <code>{ref_user[0]}</code>\n"
+                        f"{E['PHONE']} <b>SĐT:</b> <code>{ref_phone}</code>\n"
                         f"{E['GLOBE']} <b>IP:</b> <code>{ref_ip}</code>\n"
                         f"{E['CROWN']} <b>User:</b> {ref_uname}\n"
                         f"{E['RIGHT']} <b>Link Bot Ref:</b> <code>{ref_bot_link}</code>"
@@ -1941,16 +1980,16 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{E['BLUSH']} <b>KIỂM TRA THÔNG TIN ID:</b> <code>{target_id}</code>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"{E['TOP']} <b>THÔNG TIN ĐỐI TƯỢNG:</b>\n"
-                f"{E['TOP']} <b>ID:</b> <code>{u[0]}</code>\n"
-                f"{E['CLIP']} <b>SĐT:</b> <code>{u_phone}</code>\n"
+                f"{E['TARGET']} <b>ID:</b> <code>{u[0]}</code>\n"
+                f"{E['PHONE']} <b>SĐT:</b> <code>{u_phone}</code>\n"
                 f"{E['GLOBE']} <b>IP:</b> <code>{u_ip}</code>\n"
                 f"{E['CROWN']} <b>User:</b> {u_uname}\n"
                 f"{E['MONEY']} <b>Số dư:</b> <code>{u[2]:,}đ</code>\n"
-                f"{E['TOP']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
+                f"{E['ROCKET']} <b>Đã mời thành công:</b> <code>{invited_count}</code> người\n"
                 f"{E['DOWN']} <b>Link Bot Ref:</b> <code>{u_bot_link}</code>\n"
                 f"{E['CROSS']} <b>Khóa TK:</b> <b>{'CÓ' if u[4] else 'KHÔNG'}</b>\n"
                 f"{E['CROSS']} <b>Cấm rút:</b> <b>{'CÓ' if u[5] else 'KHÔNG'}</b>\n"
-                f"{E['BANDAGE']} <b>Tham gia:</b> <code>{u[6]}</code>\n"
+                f"{E['HOURGLASS']} <b>Tham gia:</b> <code>{u[6]}</code>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"{ref_info_text}"
             )
@@ -1971,7 +2010,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not txs:
                 await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> chưa từng có giao dịch nào.", parse_mode="HTML")
                 return
-            msg = f"{E['TOP']} <b>LỊCH SỬ GIAO DỊCH CỦA ID:</b> <code>{target_id}</code>\n━━━━━━━━━━━━━━━━━━\n\n"
+            msg = f"{E['INBOX']} <b>LỊCH SỬ GIAO DỊCH CỦA ID:</b> <code>{target_id}</code>\n━━━━━━━━━━━━━━━━━━\n\n"
             for tx_type, amount, status, created_at, details in txs:
                 icon = E['CHECK'] if status == "Thành công" else E['CROSS']
                 msg += (
@@ -1998,7 +2037,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not txs:
                 await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> không có lịch sử giao dịch nào.", parse_mode="HTML")
                 return
-            header = f"{E['TOP']} <b>FULL LỊCH SỬ GIAO DỊCH ID:</b> <code>{target_id}</code> (Tổng: {len(txs)} giao dịch)\n━━━━━━━━━━━━━━━━━━\n\n"
+            header = f"{E['INBOX']} <b>FULL LỊCH SỬ GIAO DỊCH ID:</b> <code>{target_id}</code> (Tổng: {len(txs)} giao dịch)\n━━━━━━━━━━━━━━━━━━\n\n"
             chunks = [header]
             current_chunk_idx = 0
             for tx_id, tx_type, amount, status, created_at, details in txs:
@@ -2035,7 +2074,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await message.reply_text(f"{E['BANDAGE']} Người dùng <code>{target_id}</code> chưa mời được bạn bè nào.", parse_mode="HTML")
                 return
             total_invited = len(invited)
-            header = f"{E['TOP']} <b>DANH SÁCH BẠN BÈ MỜI BỞI ID:</b> <code>{target_id}</code>\n{E['LIKE']} <b>Tổng số bạn bè mời:</b> <code>{total_invited:,}</code> người\n━━━━━━━━━━━━━━━━━━\n\n"
+            header = f"{E['TOP']} <b>DANH SÁCH BẠN BÈ MỜI BỞI ID:</b> <code>{target_id}</code>\n{E['STAR']} <b>Tổng số bạn bè mời:</b> <code>{total_invited:,}</code> người\n━━━━━━━━━━━━━━━━━━\n\n"
             chunks = [header]
             current_chunk_idx = 0
             all_buttons = []
@@ -2048,7 +2087,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 line = (
                     f"{E['CROWN']} <b>Full @name:</b> {uname_str}\n"
                     f"{E['PLUS']} <b>ID:</b> <code>{u_id}</code>\n"
-                    f"{E['CLIP']} <b>SĐT:</b> <code>{phone_str}</code>\n"
+                    f"{E['PHONE']} <b>SĐT:</b> <code>{phone_str}</code>\n"
                     f"{E['GLOBE']} <b>IP:</b> <code>{ip_str}</code>\n"
                     f"{E['GLOBE']} <b>Ngày tham gia:</b> <code>{joined_str}</code>\n"
                     "----------------------------------\n"
@@ -2095,7 +2134,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return count
             added_count = await db_transaction(add_codes_auto)
             await message.reply_text(
-                f"{E['LIKE']} <b>THÊM CODE VÀO KHO THÀNH CÔNG!</b>\n"
+                f"{E['CHECK2']} <b>THÊM CODE VÀO KHO THÀNH CÔNG!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"• Đã tự động phân tích và thêm thành công: <b>{added_count:,}</b> mã code vào hệ thống.",
                 parse_mode="HTML"
@@ -2113,7 +2152,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"{E['TOP']} <b>DANH SÁCH TOÀN BỘ MÃ CODE TRONG KHO</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['LIKE']} Tổng số lượng chưa dùng: <b>{total_count:,}</b> code\n"
+                f"{E['INBOX']} Tổng số lượng chưa dùng: <b>{total_count:,}</b> code\n"
                 f"{E['RIGHT']} <i>Hiển thị 50 mã code mới nhất:</i>\n\n"
             )
             for cid, tcode, cval, cat in codes_list:
@@ -2150,9 +2189,9 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 user_tag = f"@{username}" if username else "Chưa có @username"
                 msg += (
                     f"{E['RIGHT']} <b>User:</b> {user_tag} | <b>ID:</b> <code>{r_user_id}</code>\n"
-                    f"{E['LIKE']} <b>Loại Giao Dịch:</b> <code>{code_type_str}</code>\n"
+                    f"{E['CARD']} <b>Loại Giao Dịch:</b> <code>{code_type_str}</code>\n"
                     f"{E['SHIELD']} <b>Nội dung:</b> <code>{details or 'Không rõ'}</code>\n"
-                    f"{E['BANDAGE']} <b>Thời gian:</b> <code>{created_at}</code>\n"
+                    f"{E['HOURGLASS']} <b>Thời gian:</b> <code>{created_at}</code>\n"
                     "----------------------------------\n"
                 )
             await message.reply_text(msg, parse_mode="HTML")
@@ -2168,7 +2207,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 (message.from_user.id, message.from_user.username or "", get_now_str()), commit=True
             )
             await message.reply_text(
-                f"{E['SMILE']} <b>ĐÃ RESET TOÀN BỘ HỆ THỐNG!</b>\n"
+                f"{E['CHECK2']} <b>ĐÃ RESET TOÀN BỘ HỆ THỐNG!</b>\n"
                 f"• Toàn bộ người dùng, kho code & lịch sử giao dịch đã được xóa hoàn toàn.",
                 parse_mode="HTML"
             )
@@ -2180,7 +2219,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"{E['TOP']} <b>THỐNG KÊ TỔNG NGƯỜI DÙNG</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"{E['LIKE']} Tổng số người dùng trong hệ thống: <b>{total_users:,}</b>\n\n"
+                f"{E['CROWN2']} Tổng số người dùng trong hệ thống: <b>{total_users:,}</b>\n\n"
                 f"{E['RIGHT']} <b>Bấm vào nút ID bên dưới để kiểm tra full thông tin:</b>"
             )
             buttons = []
@@ -2207,7 +2246,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_message(
                         chat_id=target_id,
-                        text=f"{E['TOP']} <b>THÔNG BÁO HỆ THỐNG</b>\n━━━━━━━━━━━━━━━━━━\n\n{content}",
+                        text=f"{E['SPEAKER']} <b>THÔNG BÁO HỆ THỐNG</b>\n━━━━━━━━━━━━━━━━━━\n\n{content}",
                         parse_mode="HTML",
                     )
                     count += 1
@@ -2217,13 +2256,13 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_message(
                         chat_id=g_chat_id,
-                        text=f"{E['TOP']} <b>THÔNG BÁO HỆ THỐNG</b>\n━━━━━━━━━━━━━━━━━━\n\n{content}",
+                        text=f"{E['SPEAKER']} <b>THÔNG BÁO HỆ THỐNG</b>\n━━━━━━━━━━━━━━━━━━\n\n{content}",
                         parse_mode="HTML",
                     )
                     count += 1
                 except Exception: pass
                 await asyncio.sleep(0.05)
-            await message.reply_text(f"{E['LIKE']} Đã phát thông báo tới <b>{count}</b> người dùng/nhóm.", parse_mode="HTML")
+            await message.reply_text(f"{E['CHECK2']} Đã phát thông báo tới <b>{count}</b> người dùng/nhóm.", parse_mode="HTML")
 
         elif cmd == "/info":
             if len(args) < 1:
@@ -2254,7 +2293,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             target_id = int(args[0])
             await db_query("UPDATE users SET is_banned=0 WHERE user_id=%s", (target_id,), commit=True)
-            await message.reply_text(f"{E['LIKE']} <b>Đã mở ban tài khoản cho ID:</b> <code>{target_id}</code>", parse_mode="HTML")
+            await message.reply_text(f"{E['CHECK2']} <b>Đã mở ban tài khoản cho ID:</b> <code>{target_id}</code>", parse_mode="HTML")
 
         elif cmd == "/cam":
             if len(args) < 1:
@@ -2263,7 +2302,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             target_id = int(args[0])
             await db_query("UPDATE users SET is_withdraw_banned=1 WHERE user_id=%s", (target_id,), commit=True)
             user_withdraw_state.pop(target_id, None)
-            await message.reply_text(f"{E['BANDAGE']} Đã cấm rút code ID <code>{target_id}</code>.", parse_mode="HTML")
+            await message.reply_text(f"{E['CROSS']} Đã cấm rút code ID <code>{target_id}</code>.", parse_mode="HTML")
 
         elif cmd == "/mocam":
             if len(args) < 1:
@@ -2271,7 +2310,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             target_id = int(args[0])
             await db_query("UPDATE users SET is_withdraw_banned=0 WHERE user_id=%s", (target_id,), commit=True)
-            await message.reply_text(f"{E['LIKE']} <b>Đã mở cấm rút code cho ID:</b> <code>{target_id}</code>", parse_mode="HTML")
+            await message.reply_text(f"{E['CHECK2']} <b>Đã mở cấm rút code cho ID:</b> <code>{target_id}</code>", parse_mode="HTML")
 
         elif cmd in ("/nap", "/tru"):
             if len(args) < 2:
@@ -2295,7 +2334,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                     return True
                 await db_transaction(add_money)
-                await message.reply_text(f"{E['LIKE']} Đã cộng <b>+{amount:,}đ</b> cho ID <code>{target_id}</code>.", parse_mode="HTML")
+                await message.reply_text(f"{E['CHECK2']} Đã cộng <b>+{amount:,}đ</b> cho ID <code>{target_id}</code>.", parse_mode="HTML")
             else:
                 def deduct(cursor):
                     cursor.execute("UPDATE users SET balance=balance-%s WHERE user_id=%s AND balance>=%s", (amount, target_id, amount))
@@ -2316,7 +2355,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             new_val = "0" if curr else "1"
             await db_query("UPDATE settings SET value=%s WHERE key='maintenance'", (new_val,), commit=True)
             status_str = "BẮT ĐẦU BẢO TRÌ 🔴" if new_val == "1" else "TẮT BẢO TRÌ 🟢"
-            await message.reply_text(f"{E['BANDAGE']} Trạng thái hệ thống: <b>{status_str}</b>", parse_mode="HTML")
+            await message.reply_text(f"{E['GEAR']} Trạng thái hệ thống: <b>{status_str}</b>", parse_mode="HTML")
 
     except Exception as ecx:
         logger.exception("Lỗi admin command %s: %s", cmd, ecx)
