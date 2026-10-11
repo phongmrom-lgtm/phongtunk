@@ -64,7 +64,7 @@ TEMP_BAN_MINUTES = 2
 
 BIO_FLAG = "@lienminhvietnam"
 
-# ID emoji premium cho 6 nút menu dưới màn hình
+# ID emoji premium cho các nút menu dưới màn hình
 MENU_ICON_IDS = {
     "account": "5278467510604160626",   # 💰
     "invite": "5231005931550030290",    # 💸
@@ -72,6 +72,7 @@ MENU_ICON_IDS = {
     "top": "6188266996941985323",       # 🤣
     "support": "6188179499868229800",   # 🌟
     "history": "6186110304884101722",   # 🌟
+    "admin": "5341715473882955310",     # ⚙️ (nút Menu dành cho admin)
 }
 
 # ============================================================
@@ -395,12 +396,15 @@ def _menu_btn(text: str, key: str) -> KeyboardButton:
     return KeyboardButton(text, api_kwargs={"icon_custom_emoji_id": MENU_ICON_IDS[key]})
 
 
-def get_main_keyboard():
+def get_main_keyboard(user_id=None):
     keyboard = [
         [_menu_btn("Tài Khoản", "account"), _menu_btn("Mời Bạn Bè", "invite")],
         [_menu_btn("Rút Code", "withdraw"), _menu_btn("Top", "top")],
         [_menu_btn("Nhóm Hỗ Trợ", "support"), _menu_btn("Lịch Sử Giao Dịch", "history")],
     ]
+    # Nút "Menu" chỉ hiện với admin
+    if user_id in ADMIN_IDS:
+        keyboard.append([_menu_btn("Menu", "admin")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
@@ -1089,7 +1093,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             f"{E['CHECK2']} <b>XÁC MINH THÀNH CÔNG!</b>\n"
             f"{E['TOP']} <b>Chào mừng bạn đã gia nhập hệ thống Bot VIP!</b>"
         ),
-        reply_markup=get_main_keyboard(), parse_mode="HTML",
+        reply_markup=get_main_keyboard(user.id), parse_mode="HTML",
     )
 
 
@@ -1181,6 +1185,15 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
     text = (message.text or "").strip()
+
+    # ---------- Menu quản trị (CHỈ ADMIN) ----------
+    if text in ["Menu", "⚙️ Menu"]:
+        if user.id not in ADMIN_IDS:
+            return
+        admin_input_states.pop(user.id, None)
+        page_text, page_markup = build_admin_page(0)
+        await message.reply_text(page_text, reply_markup=page_markup, parse_mode="HTML")
+        return
 
     # ---------- Tài khoản ----------
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
@@ -1494,7 +1507,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# 11. BẢNG ĐIỀU KHIỂN ADMIN (/menu, /adm)
+# 11. BẢNG ĐIỀU KHIỂN ADMIN (/menu, /adm, nút Menu)
 # ============================================================
 async def build_admin_menu():
     st_phone = await get_verify_setting("verify_phone")
@@ -1711,13 +1724,274 @@ async def userinfo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
+# 11b. MENU ADMIN CHIA TRANG (nút "Menu" dưới màn hình - chỉ admin)
+# ============================================================
+# Kiểu nút:
+#   "i" = hỏi nhập dữ liệu rồi chạy | "r" = chạy ngay
+#   "c" = hỏi xác nhận rồi chạy     | "s" = mở bảng bật/tắt cài đặt
+ADMIN_PAGES = [
+    {
+        "icon": "📦", "title": "KHO CODE",
+        "desc": (
+            "• <b>/addcode</b> – thêm code (tự lọc trùng)\n"
+            "• <b>/dscode</b> – 50 code mới nhất trong kho\n"
+            "• <b>/kho</b> – thống kê số code còn lại\n"
+            "• <b>/rutcode</b> – 30 lượt mua code gần nhất\n"
+            "• <b>/lsxoa</b> – lịch sử code đã xóa\n"
+            "• <b>/xoatb</b> – ⚠️ xóa TOÀN BỘ kho code"
+        ),
+        "items": [
+            ("➕ /addcode", "i", "addcode"), ("📋 /dscode", "r", "dscode"),
+            ("📊 /kho", "r", "kho"), ("🏧 /rutcode", "r", "rutcode"),
+            ("🗑 /lsxoa", "r", "lsxoa"), ("⚠️ /xoatb", "c", "xoatb"),
+        ],
+    },
+    {
+        "icon": "💰", "title": "SỐ DƯ & GIAO DỊCH",
+        "desc": (
+            "• <b>/nap</b> – cộng tiền user\n"
+            "• <b>/tru</b> – trừ tiền user\n"
+            "• <b>/topsd</b> – top 15 số dư cao nhất\n"
+            "• <b>/checkgd</b> – 20 giao dịch gần nhất của user\n"
+            "• <b>/lsfull</b> – toàn bộ lịch sử giao dịch của user\n"
+            "• <b>/sdall</b> – ⚠️ đưa số dư MỌI user về 0"
+        ),
+        "items": [
+            ("➕ /nap", "i", "nap"), ("➖ /tru", "i", "tru"),
+            ("🏆 /topsd", "r", "topsd"), ("🧾 /checkgd", "i", "checkgd"),
+            ("📜 /lsfull", "i", "lsfull"), ("⚠️ /sdall", "c", "sdall"),
+        ],
+    },
+    {
+        "icon": "🔒", "title": "KHÓA / MỞ KHÓA",
+        "desc": (
+            "• <b>/ban</b> – khóa vĩnh viễn  |  <b>/moban</b> – gỡ khóa\n"
+            "• <b>/cam</b> – cấm rút code  |  <b>/mocam</b> – gỡ cấm rút\n"
+            "• <b>/mcall</b> – mở TẤT CẢ hạn chế (khóa, cấm rút, captcha, IP)\n"
+            "• <b>/cpmo</b> – mở khóa + bỏ qua captcha\n"
+            "• <b>/bo</b> – bỏ qua kiểm tra IP\n"
+            "• <b>/moip</b> – mở khóa trùng IP\n"
+            "• <b>/dsban</b> – DS bị khóa  |  <b>/dscam</b> – DS bị cấm rút"
+        ),
+        "items": [
+            ("🚫 /ban", "i", "ban"), ("✅ /moban", "i", "moban"),
+            ("⛔ /cam", "i", "cam"), ("🟢 /mocam", "i", "mocam"),
+            ("🔓 /mcall", "i", "mcall"), ("🧩 /cpmo", "i", "cpmo"),
+            ("🌐 /bo", "i", "bo"), ("🔁 /moip", "i", "moip"),
+            ("📛 /dsban", "r", "dsban"), ("📵 /dscam", "r", "dscam"),
+        ],
+    },
+    {
+        "icon": "🔍", "title": "TRA CỨU USER",
+        "desc": (
+            "• <b>/info</b> – thông tin cơ bản user\n"
+            "• <b>/dl</b> – thông tin chi tiết + người giới thiệu\n"
+            "• <b>/tim</b> – tìm theo ID / @username / SĐT / IP\n"
+            "• <b>/bb</b> – danh sách bạn bè do user mời\n"
+            "• <b>/tong</b> – tổng thành viên + nút xem nhanh\n"
+            "• <b>/dupip</b>, <b>/dupsdt</b> – IP / SĐT dùng chung nhiều tài khoản"
+        ),
+        "items": [
+            ("ℹ️ /info", "i", "info"), ("🛡 /dl", "i", "dl"),
+            ("🔎 /tim", "i", "tim"), ("👥 /bb", "i", "bb"),
+            ("👤 /tong", "r", "tong"), ("🌐 /dupip", "r", "dupip"),
+            ("📞 /dupsdt", "r", "dupsdt"),
+        ],
+    },
+    {
+        "icon": "🛡", "title": "BUFF REF & HỆ THỐNG",
+        "desc": (
+            "• <b>/bf</b> – check bio bạn bè của 1 user\n"
+            "• <b>/checktv</b> – check bio người được giới thiệu\n"
+            "• <b>/check</b>, <b>/khoabuff</b> – quét & khóa toàn hệ thống\n"
+            "• <b>/tb</b> – thông báo toàn bộ  |  <b>/gui</b> – nhắn 1 user\n"
+            "• <b>/thongke</b> – thống kê tổng quan\n"
+            "• <b>/baotri</b> – bật/tắt bảo trì\n"
+            "• <b>/xmtb</b> – ⚠️ reset xác minh toàn bộ\n"
+            "• <b>/resetall</b> – ⚠️ XÓA SẠCH dữ liệu hệ thống\n"
+            "• <b>Cài đặt</b> – bật/tắt SĐT, IP, Kênh, Captcha, Rút tiền, Auto mua code"
+        ),
+        "items": [
+            ("🕵️ /bf", "i", "bf"), ("📋 /checktv", "i", "checktv"),
+            ("🔍 /check", "c", "check"), ("🚨 /khoabuff", "c", "khoabuff"),
+            ("📢 /tb", "i", "tb"), ("✉️ /gui", "i", "gui"),
+            ("📈 /thongke", "r", "thongke"), ("🛠 /baotri", "r", "baotri"),
+            ("🔄 /xmtb", "c", "xmtb"), ("☠️ /resetall", "c", "resetall"),
+            ("⚙️ Cài đặt bật/tắt", "s", ""),
+        ],
+    },
+]
+
+ADMIN_INPUT_PROMPTS = {
+    "addcode": "Nhập danh sách code (cách nhau bằng khoảng trắng hoặc xuống dòng):",
+    "nap": "Nhập: <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 50000</i>",
+    "tru": "Nhập: <code>USER_ID SỐ_TIỀN</code>\n<i>Ví dụ: 5633649201 20000</i>",
+    "checkgd": "Nhập <b>USER_ID</b> cần xem 20 giao dịch gần nhất:",
+    "lsfull": "Nhập <b>USER_ID</b> cần xem toàn bộ lịch sử giao dịch:",
+    "ban": "Nhập <b>USER_ID</b> cần khóa vĩnh viễn:",
+    "moban": "Nhập <b>USER_ID</b> cần gỡ khóa:",
+    "cam": "Nhập <b>USER_ID</b> cần cấm rút code:",
+    "mocam": "Nhập <b>USER_ID</b> cần gỡ cấm rút code:",
+    "mcall": "Nhập <b>USER_ID</b> cần mở tất cả hạn chế:",
+    "cpmo": "Nhập <b>USER_ID</b> cần mở khóa captcha/tài khoản:",
+    "bo": "Nhập <b>USER_ID</b> cần bỏ qua kiểm tra IP:",
+    "moip": "Nhập <b>USER_ID</b> cần mở khóa trùng IP:",
+    "info": "Nhập <b>USER_ID</b> cần xem thông tin cơ bản:",
+    "dl": "Nhập <b>USER_ID</b> cần xem thông tin chi tiết:",
+    "tim": "Nhập từ khóa: <b>ID / @username / SĐT / IP</b>",
+    "bb": "Nhập <b>USER_ID</b> cần xem danh sách bạn bè đã mời:",
+    "bf": "Nhập <b>USER_ID</b> người mời cần check bio bạn bè:",
+    "checktv": "Nhập <b>USER_ID hoặc @username</b> người giới thiệu:",
+    "tb": "Nhập nội dung thông báo gửi toàn bộ người dùng & nhóm:",
+    "gui": "Nhập: <code>USER_ID Nội dung tin nhắn</code>",
+}
+
+ADMIN_CONFIRM_TEXT = {
+    "xoatb": "XÓA TOÀN BỘ KHO CODE",
+    "sdall": "ĐƯA SỐ DƯ CỦA TẤT CẢ USER VỀ 0",
+    "check": "QUÉT BIO TOÀN HỆ THỐNG VÀ KHÓA TÀI KHOẢN BUFF (mất khá nhiều thời gian)",
+    "khoabuff": "QUÉT BIO TOÀN HỆ THỐNG VÀ KHÓA TÀI KHOẢN BUFF (mất khá nhiều thời gian)",
+    "xmtb": "RESET XÁC MINH CỦA TOÀN BỘ THÀNH VIÊN",
+    "resetall": "XÓA SẠCH TOÀN BỘ NGƯỜI DÙNG, KHO CODE VÀ GIAO DỊCH",
+}
+
+_ADMIN_ALL_CMDS = {cmd for pg in ADMIN_PAGES for _, _, cmd in pg["items"] if cmd}
+
+
+def _admin_page_of(cmd: str) -> int:
+    for i, pg in enumerate(ADMIN_PAGES):
+        if any(c == cmd for _, _, c in pg["items"]):
+            return i
+    return 0
+
+
+def build_admin_page(page: int):
+    total = len(ADMIN_PAGES)
+    page = max(0, min(page, total - 1))
+    pg = ADMIN_PAGES[page]
+
+    text = (
+        f"{E['GEAR']} <b>MENU QUẢN TRỊ — {pg['icon']} {pg['title']}</b>\n"
+        f"Trang <b>{page + 1}/{total}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{pg['desc']}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Bấm nút bên dưới để thao tác. Lệnh cần dữ liệu sẽ hỏi bạn nhập.</i>"
+    )
+
+    # Hàng tab chuyển nhanh giữa các trang
+    rows = [[
+        InlineKeyboardButton(("• " if i == page else "") + p["icon"], callback_data=f"amp_{i}")
+        for i, p in enumerate(ADMIN_PAGES)
+    ]]
+
+    row = []
+    for label, mode, cmd in pg["items"]:
+        cb = "amset" if mode == "s" else f"am{mode}_{cmd}"
+        row.append(InlineKeyboardButton(label, callback_data=cb))
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Trước", callback_data=f"amp_{page - 1}"))
+    nav.append(InlineKeyboardButton(f"{page + 1}/{total}", callback_data=f"amp_{page}"))
+    if page < total - 1:
+        nav.append(InlineKeyboardButton("Sau ➡️", callback_data=f"amp_{page + 1}"))
+    rows.append(nav)
+    rows.append([InlineKeyboardButton("❌ Đóng", callback_data="amclose")])
+
+    return text, InlineKeyboardMarkup(rows)
+
+
+async def admin_pages_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    if not query:
+        return
+    if not is_admin(update):
+        await query.answer("Bạn không có quyền thực hiện thao tác này!", show_alert=True)
+        return
+    try: await query.answer()
+    except Exception: pass
+
+    data = query.data or ""
+    uid = query.from_user.id
+
+    if data == "amclose":
+        try: await query.message.delete()
+        except Exception: pass
+        return
+
+    if data == "amset":
+        text, markup = await build_admin_menu()
+        await query.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
+        return
+
+    if data.startswith("amp_"):
+        try: page = int(data[4:])
+        except ValueError: return
+        admin_input_states.pop(uid, None)
+        text, markup = build_admin_page(page)
+        try:
+            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception:
+            pass
+        return
+
+    # Các nút còn lại có dạng am<mode>_<cmd>
+    try:
+        prefix, cmd = data.split("_", 1)
+    except ValueError:
+        return
+    if cmd not in _ADMIN_ALL_CMDS:
+        return
+
+    if prefix == "ami":      # cần nhập dữ liệu
+        admin_input_states[uid] = cmd
+        prompt = ADMIN_INPUT_PROMPTS.get(cmd, "Nhập dữ liệu:")
+        await query.message.reply_text(
+            f"{E['RIGHT']} <b>/{cmd}</b>\n{prompt}", parse_mode="HTML"
+        )
+
+    elif prefix == "amr":    # chạy ngay
+        admin_input_states.pop(uid, None)
+        await admin_commands(update, context, override_cmd=f"/{cmd}")
+
+    elif prefix == "amc":    # hỏi xác nhận
+        warn = ADMIN_CONFIRM_TEXT.get(cmd, "THỰC HIỆN LỆNH NÀY")
+        markup = InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Xác nhận", callback_data=f"amy_{cmd}"),
+            InlineKeyboardButton("↩️ Quay lại", callback_data=f"amp_{_admin_page_of(cmd)}"),
+        ]])
+        try:
+            await query.edit_message_text(
+                f"{E['WARN']} <b>XÁC NHẬN LỆNH /{cmd}</b>\n━━━━━━━━━━━━━━━━━━\n"
+                f"Bạn sắp: <b>{warn}</b>\nThao tác này không thể hoàn tác!",
+                reply_markup=markup, parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    elif prefix == "amy":    # đã xác nhận -> quay về trang rồi chạy
+        admin_input_states.pop(uid, None)
+        text, markup = build_admin_page(_admin_page_of(cmd))
+        try: await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+        except Exception: pass
+        await admin_commands(update, context, override_cmd=f"/{cmd}")
+
+
+# ============================================================
 # 12. LỆNH ADMIN
 # ============================================================
-async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, override_cmd: str = None):
     if not is_admin(update): return
     message = update.effective_message
     if not message: return
-    user_id = message.from_user.id
+    # Lấy ID admin từ người bấm/gửi (không dùng message.from_user vì khi gọi từ nút bấm đó là ID của bot)
+    user_id = update.effective_user.id
     chat_id = message.chat_id
 
     # Dùng biến cục bộ, KHÔNG gán message.text / context.args
@@ -1726,8 +2000,14 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = message.text or ""
     cmd = (raw_text.split()[0].split("@")[0].lower()) if raw_text.strip() else ""
 
-    # ---- Admin đang ở chế độ nhập liệu sau khi bấm nút trong /adm ----
-    if user_id in admin_input_states:
+    # ---- Gọi từ nút bấm trong Menu (chạy ngay, không tham số) ----
+    if override_cmd:
+        cmd = override_cmd
+        args = []
+        raw_text = override_cmd
+
+    # ---- Admin đang ở chế độ nhập liệu sau khi bấm nút trong /adm hoặc Menu ----
+    elif user_id in admin_input_states:
         cmd_type = admin_input_states.pop(user_id)
         text_input = (message.text or "").strip()
 
@@ -1753,6 +2033,13 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await message.reply_text(f"{E['CROSS']} Vui lòng nhập ID hợp lệ.", parse_mode="HTML")
                 return
+        else:
+            # Các lệnh còn lại từ Menu: tim, bb, bf, gui, mcall, cpmo, bo, moip, checkgd, lsfull, checktv...
+            if not text_input:
+                await message.reply_text(f"{E['CROSS']} Vui lòng nhập dữ liệu hợp lệ.", parse_mode="HTML")
+                return
+            args = text_input.split()
+            raw_text = f"/{cmd_type} {text_input}"
         cmd = f"/{cmd_type}"
 
     try:
@@ -2662,7 +2949,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pending_captcha_users.clear()
             await db_query(
                 "INSERT INTO users (user_id, username, balance, joined_at) VALUES (%s, %s, 0, %s) ON CONFLICT (user_id) DO NOTHING",
-                (message.from_user.id, message.from_user.username or "", get_now_str()), commit=True
+                (user_id, update.effective_user.username or "", get_now_str()), commit=True
             )
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ RESET TOÀN BỘ HỆ THỐNG!</b>\n"
@@ -2678,9 +2965,19 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================================================
 # 13. DISPATCHER & KHỞI CHẠY BOT
 # ============================================================
+MENU_BUTTON_TEXTS = (
+    "Tài Khoản", "Mời Bạn Bè", "Rút Code", "Top",
+    "Nhóm Hỗ Trợ", "Lịch Sử Giao Dịch", "Menu",
+)
+
+
 async def text_message_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message: return
     user = update.effective_user
+    txt = (update.effective_message.text or "").strip()
+    # Admin đang chờ nhập liệu mà bấm 1 nút menu khác -> hủy chế độ nhập, xử lý như nút bấm bình thường
+    if user and user.id in admin_input_states and txt in MENU_BUTTON_TEXTS:
+        admin_input_states.pop(user.id, None)
     if user and user.id in admin_input_states and user.id in ADMIN_IDS:
         await admin_commands(update, context)
         return
@@ -2709,6 +3006,9 @@ def main():
     # ---- Callback (nút bấm) ----
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)"))
+    app.add_handler(CallbackQueryHandler(
+        admin_pages_callback, pattern=r"^(amp_|ami_|amr_|amc_|amy_|amclose$|amset$)"
+    ))
     app.add_handler(CallbackQueryHandler(userinfo_callback, pattern=r"^userinfo_"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"))
