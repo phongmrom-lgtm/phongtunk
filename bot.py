@@ -1298,12 +1298,15 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (message.text or "").strip()
 
     # ---------- Menu quản trị (CHỈ ADMIN) ----------
+    # Các nút admin nằm ngay trên bàn phím dưới màn hình
+    if user.id in ADMIN_IDS and is_admin_kb_text(text):
+        if await admin_keyboard_handler(update, context, text):
+            return
+
     if text in ["Menu", "⚙️ Menu"]:
         if user.id not in ADMIN_IDS:
             return
-        admin_input_states.pop(user.id, None)
-        page_text, page_markup = build_admin_page(0)
-        await message.reply_text(page_text, reply_markup=page_markup, parse_mode="HTML")
+        await show_admin_page(message, user.id, 0)
         return
 
     # ---------- Tài khoản ----------
@@ -1619,7 +1622,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# 11. BẢNG ĐIỀU KHIỂN ADMIN (/settings, /admin, nút Menu)
+# 11. BẢNG ĐIỀU KHIỂN ADMIN (/settings, /admin)
 # ============================================================
 async def build_admin_menu():
     st_phone = await get_verify_setting("verify_phone")
@@ -1836,12 +1839,14 @@ async def userinfo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ============================================================
-# 11b. MENU ADMIN CHIA TRANG (nút "Menu" dưới màn hình - chỉ admin)
+# 11b. MENU ADMIN TRÊN BÀN PHÍM DƯỚI MÀN HÌNH (nút "Menu" - chỉ admin)
 # ============================================================
+# Bấm "Menu" -> bàn phím đổi thành các nút admin của trang 1.
+# Bấm tab / Trang Sau / Trang Trước -> bot gửi hướng dẫn trang đó và đổi bộ nút.
 # Kiểu nút:
 #   "i" = hỏi nhập dữ liệu rồi chạy | "r" = chạy ngay
 #   "c" = hỏi xác nhận rồi chạy     | "s" = mở bảng bật/tắt cài đặt
-# Mỗi nút: (nhãn không emoji, kiểu, tên lệnh, key emoji động trong bảng AI)
+# Mỗi nút: (nhãn, kiểu, tên lệnh, key emoji động trong bảng AI)
 ADMIN_PAGES = [
     {
         "icon": "CART", "title": "KHO CODE",
@@ -1970,57 +1975,133 @@ ADMIN_CONFIRM_TEXT = {
 
 _ADMIN_ALL_CMDS = {cmd for pg in ADMIN_PAGES for _, _, cmd, _ in pg["items"] if cmd}
 
+ADMIN_TAB_NAMES = ["Kho Code", "Số Dư", "Khóa/Mở", "Tra Cứu", "Hệ Thống"]
+ADMIN_NAV_TEXTS = {"Trang Trước", "Trang Sau", "Đóng Menu"}
+admin_menu_page = {}  # user_id -> trang đang mở
 
-def _admin_page_of(cmd: str) -> int:
-    for i, pg in enumerate(ADMIN_PAGES):
-        if any(c == cmd for _, _, c, _ in pg["items"]):
-            return i
-    return 0
+# nhãn nút bàn phím (bỏ dấu "/") -> (kiểu, lệnh)
+ADMIN_KB_ACTIONS = {
+    label.lstrip("/"): (mode, cmd)
+    for pg in ADMIN_PAGES for label, mode, cmd, _ in pg["items"]
+}
 
 
-def build_admin_page(page: int):
-    total = len(ADMIN_PAGES)
-    page = max(0, min(page, total - 1))
-    pg = ADMIN_PAGES[page]
+def _akb(text: str, key: str) -> KeyboardButton:
+    """Nút bàn phím admin với emoji động."""
+    return KeyboardButton(text, api_kwargs={"icon_custom_emoji_id": AI[key][0]})
 
-    text = (
-        f"{E['GEAR']} <b>MENU QUẢN TRỊ — {ai(pg['icon'])} {pg['title']}</b>\n"
-        f"Trang <b>{page + 1}/{total}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"{pg['desc']}\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Bấm nút bên dưới để thao tác. Lệnh cần dữ liệu sẽ hỏi bạn nhập.</i>"
-    )
 
-    # Hàng tab chuyển nhanh giữa các trang (icon động + số trang; trang đang mở có dấu •)
-    rows = [[
-        abtn(("• " if i == page else "") + str(i + 1), p["icon"], callback_data=f"amp_{i}")
+def get_admin_keyboard(page: int) -> ReplyKeyboardMarkup:
+    last = len(ADMIN_PAGES) - 1
+    tabs = [
+        _akb(("• " if i == page else "") + ADMIN_TAB_NAMES[i], p["icon"])
         for i, p in enumerate(ADMIN_PAGES)
-    ]]
-
+    ]
+    rows = [tabs[:3], tabs[3:]]
     row = []
-    for label, mode, cmd, icon in pg["items"]:
-        cb = "amset" if mode == "s" else f"am{mode}_{cmd}"
-        row.append(abtn(label, icon, callback_data=cb))
+    for label, mode, cmd, icon in ADMIN_PAGES[page]["items"]:
+        row.append(_akb(label.lstrip("/"), icon))
         if len(row) == 2:
             rows.append(row)
             row = []
     if row:
         rows.append(row)
-
     nav = []
     if page > 0:
-        nav.append(abtn("Trước", "PIN2", callback_data=f"amp_{page - 1}"))
-    nav.append(abtn(f"{page + 1}/{total}", "TOP", callback_data=f"amp_{page}"))
-    if page < total - 1:
-        nav.append(abtn("Sau", "NEXT", callback_data=f"amp_{page + 1}"))
-    rows.append(nav)
-    rows.append([abtn("Đóng", "CROSS", callback_data="amclose")])
+        nav.append(_akb("Trang Trước", "PIN2"))
+    if page < last:
+        nav.append(_akb("Trang Sau", "NEXT"))
+    if nav:
+        rows.append(nav)
+    rows.append([_akb("Đóng Menu", "CROSS")])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
-    return text, InlineKeyboardMarkup(rows)
+
+def build_admin_page_text(page: int) -> str:
+    pg = ADMIN_PAGES[page]
+    return (
+        f"{E['GEAR']} <b>MENU QUẢN TRỊ — {ai(pg['icon'])} {pg['title']}</b>\n"
+        f"Trang <b>{page + 1}/{len(ADMIN_PAGES)}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{pg['desc']}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Bấm nút ở bàn phím bên dưới để thao tác. Lệnh cần dữ liệu sẽ hỏi bạn nhập.</i>"
+    )
 
 
-async def admin_pages_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def is_admin_kb_text(txt: str) -> bool:
+    raw = txt[2:] if txt.startswith("• ") else txt
+    return raw in ADMIN_TAB_NAMES or raw in ADMIN_NAV_TEXTS or raw in ADMIN_KB_ACTIONS
+
+
+async def show_admin_page(message, uid: int, page: int):
+    page = max(0, min(page, len(ADMIN_PAGES) - 1))
+    admin_menu_page[uid] = page
+    admin_input_states.pop(uid, None)
+    await message.reply_text(
+        build_admin_page_text(page),
+        reply_markup=get_admin_keyboard(page), parse_mode="HTML",
+    )
+
+
+async def admin_keyboard_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
+    user = update.effective_user
+    message = update.effective_message
+    if not user or user.id not in ADMIN_IDS or not message:
+        return False
+    uid = user.id
+    raw = text[2:] if text.startswith("• ") else text
+    cur = admin_menu_page.get(uid, 0)
+
+    if raw in ADMIN_TAB_NAMES:
+        await show_admin_page(message, uid, ADMIN_TAB_NAMES.index(raw))
+        return True
+    if raw == "Trang Sau":
+        await show_admin_page(message, uid, cur + 1)
+        return True
+    if raw == "Trang Trước":
+        await show_admin_page(message, uid, cur - 1)
+        return True
+    if raw == "Đóng Menu":
+        admin_input_states.pop(uid, None)
+        admin_menu_page.pop(uid, None)
+        await message.reply_text(
+            f"{E['CHECK2']} Đã đóng menu quản trị.",
+            reply_markup=get_main_keyboard(uid), parse_mode="HTML",
+        )
+        return True
+
+    if raw in ADMIN_KB_ACTIONS:
+        mode, cmd = ADMIN_KB_ACTIONS[raw]
+        if mode == "s":                      # bảng bật/tắt cài đặt (inline)
+            admin_input_states.pop(uid, None)
+            t, markup = await build_admin_menu()
+            await message.reply_text(t, reply_markup=markup, parse_mode="HTML")
+        elif mode == "i":                    # cần nhập dữ liệu
+            admin_input_states[uid] = cmd
+            prompt = ADMIN_INPUT_PROMPTS.get(cmd, "Nhập dữ liệu:")
+            await message.reply_text(f"{E['RIGHT']} <b>/{cmd}</b>\n{prompt}", parse_mode="HTML")
+        elif mode == "r":                    # chạy ngay
+            admin_input_states.pop(uid, None)
+            await admin_commands(update, context, override_cmd=f"/{cmd}")
+        elif mode == "c":                    # hỏi xác nhận
+            admin_input_states.pop(uid, None)
+            warn = ADMIN_CONFIRM_TEXT.get(cmd, "THỰC HIỆN LỆNH NÀY")
+            markup = InlineKeyboardMarkup([[
+                abtn("Xác nhận", "MEDAL", callback_data=f"amy_{cmd}"),
+                abtn("Hủy", "CROSS", callback_data="amcancel"),
+            ]])
+            await message.reply_text(
+                f"{E['WARN']} <b>XÁC NHẬN LỆNH /{cmd}</b>\n━━━━━━━━━━━━━━━━━━\n"
+                f"Bạn sắp: <b>{warn}</b>\nThao tác này không thể hoàn tác!",
+                reply_markup=markup, parse_mode="HTML",
+            )
+        return True
+    return False
+
+
+async def admin_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Nút Xác nhận / Hủy cho các lệnh nguy hiểm."""
     query = update.callback_query
     if not query:
         return
@@ -2029,69 +2110,16 @@ async def admin_pages_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     try: await query.answer()
     except Exception: pass
-
     data = query.data or ""
-    uid = query.from_user.id
-
-    if data == "amclose":
-        try: await query.message.delete()
+    if data == "amcancel":
+        try: await query.edit_message_text(f"{E['CROSS']} Đã hủy thao tác.", parse_mode="HTML")
         except Exception: pass
         return
-
-    if data == "amset":
-        text, markup = await build_admin_menu()
-        await query.message.reply_text(text, reply_markup=markup, parse_mode="HTML")
-        return
-
-    if data.startswith("amp_"):
-        try: page = int(data[4:])
-        except ValueError: return
-        admin_input_states.pop(uid, None)
-        text, markup = build_admin_page(page)
-        try:
-            await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
-        except Exception:
-            pass
-        return
-
-    # Các nút còn lại có dạng am<mode>_<cmd>
-    try:
-        prefix, cmd = data.split("_", 1)
-    except ValueError:
-        return
-    if cmd not in _ADMIN_ALL_CMDS:
-        return
-
-    if prefix == "ami":      # cần nhập dữ liệu
-        admin_input_states[uid] = cmd
-        prompt = ADMIN_INPUT_PROMPTS.get(cmd, "Nhập dữ liệu:")
-        await query.message.reply_text(
-            f"{E['RIGHT']} <b>/{cmd}</b>\n{prompt}", parse_mode="HTML"
-        )
-
-    elif prefix == "amr":    # chạy ngay
-        admin_input_states.pop(uid, None)
-        await admin_commands(update, context, override_cmd=f"/{cmd}")
-
-    elif prefix == "amc":    # hỏi xác nhận
-        warn = ADMIN_CONFIRM_TEXT.get(cmd, "THỰC HIỆN LỆNH NÀY")
-        markup = InlineKeyboardMarkup([[
-            abtn("Xác nhận", "MEDAL", callback_data=f"amy_{cmd}"),
-            abtn("Quay lại", "REFRESH", callback_data=f"amp_{_admin_page_of(cmd)}"),
-        ]])
-        try:
-            await query.edit_message_text(
-                f"{E['WARN']} <b>XÁC NHẬN LỆNH /{cmd}</b>\n━━━━━━━━━━━━━━━━━━\n"
-                f"Bạn sắp: <b>{warn}</b>\nThao tác này không thể hoàn tác!",
-                reply_markup=markup, parse_mode="HTML",
-            )
-        except Exception:
-            pass
-
-    elif prefix == "amy":    # đã xác nhận -> quay về trang rồi chạy
-        admin_input_states.pop(uid, None)
-        text, markup = build_admin_page(_admin_page_of(cmd))
-        try: await query.edit_message_text(text, reply_markup=markup, parse_mode="HTML")
+    if data.startswith("amy_"):
+        cmd = data[4:]
+        if cmd not in _ADMIN_ALL_CMDS:
+            return
+        try: await query.edit_message_text(f"{E['HOURGLASS']} Đang thực hiện /{cmd}...", parse_mode="HTML")
         except Exception: pass
         await admin_commands(update, context, override_cmd=f"/{cmd}")
 
@@ -3089,7 +3117,7 @@ async def text_message_dispatcher(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     txt = (update.effective_message.text or "").strip()
     # Admin đang chờ nhập liệu mà bấm 1 nút menu khác -> hủy chế độ nhập, xử lý như nút bấm bình thường
-    if user and user.id in admin_input_states and txt in MENU_BUTTON_TEXTS:
+    if user and user.id in admin_input_states and (txt in MENU_BUTTON_TEXTS or is_admin_kb_text(txt)):
         admin_input_states.pop(user.id, None)
     if user and user.id in admin_input_states and user.id in ADMIN_IDS:
         await admin_commands(update, context)
@@ -3119,9 +3147,7 @@ def main():
     # ---- Callback (nút bấm) ----
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)"))
-    app.add_handler(CallbackQueryHandler(
-        admin_pages_callback, pattern=r"^(amp_|ami_|amr_|amc_|amy_|amclose$|amset$)"
-    ))
+    app.add_handler(CallbackQueryHandler(admin_confirm_callback, pattern=r"^(amy_|amcancel$)"))
     app.add_handler(CallbackQueryHandler(userinfo_callback, pattern=r"^userinfo_"))
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"))
