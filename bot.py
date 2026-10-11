@@ -1220,7 +1220,11 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if db_user[4] == 1:
             await message.reply_text(f"{E['CROSS']} <b>Tài khoản của bạn đã bị CẤM RÚT CODE!</b>", parse_mode="HTML")
             return
-        buttons = [[InlineKeyboardButton(f"✅ XÁC NHẬN MUA CODE (Giá {CODE_PRICE:,}đ)", callback_data="buycode_confirm")]]
+        buttons = [[InlineKeyboardButton(
+            f"XÁC NHẬN MUA CODE (Giá {CODE_PRICE:,}đ)",
+            callback_data="buycode_confirm",
+            api_kwargs={"icon_custom_emoji_id": "6206196801775605920"},
+        )]]
         await message.reply_text(
             f"{E['SHIELD']} <b>HỆ THỐNG RÚT CODE TỰ ĐỘNG</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
@@ -1515,7 +1519,15 @@ async def adm_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{E['RIGHT']} <b>/nap / tru:</b> Cộng hoặc trừ số dư tài khoản user.\n"
         f"{E['RIGHT']} <b>/info / dl:</b> Xem thông tin chi tiết user.\n"
         f"{E['RIGHT']} <b>/ban / moban:</b> Quản lý trạng thái khóa tài khoản.\n"
-        f"{E['RIGHT']} <b>/cam / mocam:</b> Quản lý trạng thái cấm rút code."
+        f"{E['RIGHT']} <b>/cam / mocam:</b> Quản lý trạng thái cấm rút code.\n\n"
+        f"{E['STAR']} <b>LỆNH MỚI:</b>\n"
+        f"{E['RIGHT']} <b>/bf ID:</b> Kiểm tra bạn bè được mời có tiểu sử @Lienminhvietnam.\n"
+        f"{E['RIGHT']} <b>/thongke:</b> Bảng thống kê tổng quan hệ thống.\n"
+        f"{E['RIGHT']} <b>/tim từ_khóa:</b> Tìm user theo ID / @username / SĐT / IP.\n"
+        f"{E['RIGHT']} <b>/dsban, /dscam:</b> Danh sách bị khóa / bị cấm rút code.\n"
+        f"{E['RIGHT']} <b>/topsd:</b> Top số dư cao nhất.\n"
+        f"{E['RIGHT']} <b>/dupip, /dupsdt:</b> IP / SĐT dùng chung nhiều tài khoản.\n"
+        f"{E['RIGHT']} <b>/gui ID nội_dung:</b> Nhắn riêng cho 1 user."
     )
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
@@ -1635,6 +1647,19 @@ async def send_split_message(bot, chat_id, text, parse_mode="HTML"):
             current_chunk += line + "\n"
     if current_chunk.strip():
         await bot.send_message(chat_id=chat_id, text=current_chunk, parse_mode=parse_mode, disable_web_page_preview=True)
+
+
+BIO_FLAG = "@lienminhvietnam"
+
+
+async def check_bio_flag(bot, uid: int):
+    """True = bio có @Lienminhvietnam, False = sạch, None = không đọc được (user chặn bot...)."""
+    try:
+        chat_full = await bot.get_chat(uid)
+        return BIO_FLAG in (chat_full.bio or "").lower()
+    except Exception as exc:
+        logger.warning(f"Không đọc được bio user {uid}: {exc}")
+        return None
 
 
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2350,6 +2375,203 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     return
                 await message.reply_text(f"{E['CROSS']} Đã trừ <b>-{amount:,}đ</b> của ID <code>{target_id}</code>.", parse_mode="HTML")
 
+        elif cmd == "/bf":
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/bf USER_ID</code>", parse_mode="HTML")
+                return
+            try: target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
+                return
+            owner = await db_query("SELECT user_id, username, phone_number, ip_address FROM users WHERE user_id=%s", (target_id,), fetchone=True)
+            if not owner:
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy ID <code>{target_id}</code> trong cơ sở dữ liệu.", parse_mode="HTML")
+                return
+            invited = await db_query(
+                "SELECT user_id, username, phone_number, ip_address, is_banned FROM users WHERE referrer_id=%s ORDER BY joined_at DESC",
+                (target_id,), fetchall=True
+            )
+            if not invited:
+                await message.reply_text(f"{E['BANDAGE']} ID <code>{target_id}</code> chưa mời được bạn bè nào.", parse_mode="HTML")
+                return
+            await message.reply_text(
+                f"{E['HOURGLASS']} Đang kiểm tra tiểu sử <b>{len(invited):,}</b> bạn bè được mời bởi <code>{target_id}</code>...",
+                parse_mode="HTML"
+            )
+            matched, unreadable = [], 0
+            for u_id, u_uname, u_phone, u_ip, u_banned in invited:
+                res = await check_bio_flag(context.bot, u_id)
+                if res is None:
+                    unreadable += 1
+                elif res:
+                    matched.append((u_id, u_uname, u_phone, u_ip, u_banned))
+                await asyncio.sleep(0.05)
+
+            owner_name = f"@{owner[1]}" if owner[1] else "Chưa đặt username"
+            lines = [
+                f"{E['TOP']} <b>KẾT QUẢ /bf — ID:</b> <code>{target_id}</code>\n━━━━━━━━━━━━━━━━━━",
+                f"{E['CROWN']} Người mời: {owner_name} | SĐT: <code>{owner[2] or 'N/A'}</code> | IP: <code>{owner[3] or 'N/A'}</code>",
+                f"{E['RIGHT']} Tổng bạn bè đã mời: <b>{len(invited):,}</b>",
+                f"{E['CROSS']} Có tiểu sử @Lienminhvietnam: <b>{len(matched):,}</b>",
+                f"{E['WARN']} Không đọc được tiểu sử: <b>{unreadable:,}</b> (user đã chặn bot / lỗi)",
+                "━━━━━━━━━━━━━━━━━━",
+            ]
+            if matched:
+                lines.append("👥 <b>Danh sách bạn bè có tiểu sử @Lienminhvietnam:</b>\n")
+                for u_id, u_uname, u_phone, u_ip, u_banned in matched:
+                    nm = f"@{u_uname}" if u_uname else f"User {u_id}"
+                    lines.append(
+                        f"• {nm} | ID: <code>{u_id}</code>\n"
+                        f"  SĐT: <code>{u_phone or 'N/A'}</code> | IP: <code>{u_ip or 'N/A'}</code> | Khóa: <b>{'CÓ' if u_banned else 'KHÔNG'}</b>"
+                    )
+            else:
+                lines.append(f"{E['CHECK2']} Không có bạn bè nào để tiểu sử @Lienminhvietnam.")
+            await send_split_message(context.bot, chat_id, "\n".join(lines), parse_mode="HTML")
+
+        elif cmd == "/thongke":
+            today = datetime.now(TIMEZONE).strftime("%Y-%m-%d") + "%"
+            total = (await db_query("SELECT COUNT(*) FROM users", fetchone=True))[0]
+            banned = (await db_query("SELECT COUNT(*) FROM users WHERE is_banned=1", fetchone=True))[0]
+            wd_banned = (await db_query("SELECT COUNT(*) FROM users WHERE is_withdraw_banned=1 AND is_banned=0", fetchone=True))[0]
+            phone_ok = (await db_query("SELECT COUNT(*) FROM users WHERE phone_number IS NOT NULL AND phone_number<>''", fetchone=True))[0]
+            ip_ok = (await db_query("SELECT COUNT(*) FROM users WHERE ip_address IS NOT NULL AND ip_address<>''", fetchone=True))[0]
+            cap_ok = (await db_query("SELECT COUNT(*) FROM users WHERE captcha_verified=1", fetchone=True))[0]
+            sum_bal = (await db_query("SELECT COALESCE(SUM(balance),0) FROM users WHERE is_banned=0", fetchone=True))[0]
+            new_today = (await db_query("SELECT COUNT(*) FROM users WHERE joined_at LIKE %s", (today,), fetchone=True))[0]
+            ref_today = (await db_query(
+                "SELECT COUNT(*) FROM transactions WHERE type='Thưởng Mời Bạn' AND status='Thành công' AND created_at LIKE %s",
+                (today,), fetchone=True))[0]
+            buy_today = (await db_query(
+                "SELECT COUNT(*), COALESCE(SUM(amount),0) FROM transactions WHERE type LIKE 'Mua Code%%' AND status='Thành công' AND created_at LIKE %s",
+                (today,), fetchone=True))
+            buy_all = (await db_query(
+                "SELECT COUNT(*) FROM transactions WHERE type LIKE 'Mua Code%%' AND status='Thành công'", fetchone=True))[0]
+            stock = (await db_query("SELECT COUNT(*) FROM code_stock WHERE is_used=0", fetchone=True))[0]
+            maint = await is_maintenance()
+            await message.reply_text(
+                f"{E['TOP']} <b>BẢNG THỐNG KÊ HỆ THỐNG</b>\n━━━━━━━━━━━━━━━━━━\n"
+                f"{E['CROWN2']} Tổng thành viên: <b>{total:,}</b>\n"
+                f"{E['GRIN']} Thành viên mới hôm nay: <b>{new_today:,}</b>\n"
+                f"{E['CROSS']} Đang bị khóa: <b>{banned:,}</b>\n"
+                f"{E['WARN']} Bị cấm rút code (chưa khóa): <b>{wd_banned:,}</b>\n"
+                f"{E['PHONE']} Đã xác minh SĐT: <b>{phone_ok:,}</b>\n"
+                f"{E['GLOBE']} Đã xác minh IP: <b>{ip_ok:,}</b>\n"
+                f"{E['SHIELD']} Đã qua Captcha: <b>{cap_ok:,}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['MONEY']} Tổng số dư (user không bị khóa): <b>{sum_bal:,}đ</b>\n"
+                f"{E['ROCKET']} Lượt mời thành công hôm nay: <b>{ref_today:,}</b>\n"
+                f"{E['CARD']} Code đã bán hôm nay: <b>{buy_today[0]:,}</b> ({buy_today[1]:,}đ)\n"
+                f"{E['CARD']} Tổng code đã bán: <b>{buy_all:,}</b>\n"
+                f"{E['FIRE']} Kho code còn: <b>{stock:,}</b>\n"
+                f"{E['GEAR']} Bảo trì: <b>{'ĐANG BẬT 🔴' if maint else 'Tắt 🟢'}</b>",
+                parse_mode="HTML"
+            )
+
+        elif cmd == "/tim":
+            if not args:
+                await message.reply_text(
+                    f"{E['WARN']} <b>Cú pháp:</b> <code>/tim ID | @username | số điện thoại | IP</code>",
+                    parse_mode="HTML")
+                return
+            kw = args[0].replace("@", "").strip()
+            like_kw = f"%{kw}%"
+            if kw.isdigit() and len(kw) >= 8:
+                rows = await db_query(
+                    "SELECT user_id, username, balance, is_banned, is_withdraw_banned, phone_number, ip_address FROM users "
+                    "WHERE user_id=%s OR phone_number LIKE %s LIMIT 15",
+                    (int(kw), like_kw), fetchall=True)
+            else:
+                rows = await db_query(
+                    "SELECT user_id, username, balance, is_banned, is_withdraw_banned, phone_number, ip_address FROM users "
+                    "WHERE username ILIKE %s OR ip_address LIKE %s OR phone_number LIKE %s LIMIT 15",
+                    (like_kw, like_kw, like_kw), fetchall=True)
+            if not rows:
+                await message.reply_text(f"{E['BANDAGE']} Không tìm thấy kết quả cho: <code>{kw}</code>", parse_mode="HTML")
+                return
+            msg = f"{E['TOP']} <b>KẾT QUẢ TÌM KIẾM:</b> <code>{kw}</code>\n━━━━━━━━━━━━━━━━━━\n\n"
+            for u_id, u_name, bal, b1, b2, ph, ip in rows:
+                msg += (
+                    f"{E['RIGHT']} <b>{('@' + u_name) if u_name else 'Chưa có @username'}</b> | ID: <code>{u_id}</code>\n"
+                    f"   {E['MONEY']} <code>{bal:,}đ</code> | Khóa: <b>{'CÓ' if b1 else 'KHÔNG'}</b> | Cấm rút: <b>{'CÓ' if b2 else 'KHÔNG'}</b>\n"
+                    f"   {E['PHONE']} <code>{ph or 'N/A'}</code> | {E['GLOBE']} <code>{ip or 'N/A'}</code>\n"
+                    "----------------------------------\n"
+                )
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/dsban":
+            total_b = (await db_query("SELECT COUNT(*) FROM users WHERE is_banned=1", fetchone=True))[0]
+            rows = await db_query(
+                "SELECT user_id, username, ip_address FROM users WHERE is_banned=1 ORDER BY user_id DESC LIMIT 40", fetchall=True)
+            if not rows:
+                await message.reply_text(f"{E['CHECK2']} Hiện không có tài khoản nào bị khóa.", parse_mode="HTML")
+                return
+            msg = f"{E['CROSS']} <b>DANH SÁCH TÀI KHOẢN BỊ KHÓA</b> (tổng <b>{total_b:,}</b>, hiện 40 mới nhất)\n━━━━━━━━━━━━━━━━━━\n"
+            for u_id, u_name, ip in rows:
+                msg += f"• {('@' + u_name) if u_name else 'N/A'} | <code>{u_id}</code> | IP: <code>{ip or 'N/A'}</code>\n"
+            msg += f"\n{E['INFO']} Mở khóa: <code>/moban ID</code> hoặc <code>/mcall ID</code>"
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/dscam":
+            total_c = (await db_query("SELECT COUNT(*) FROM users WHERE is_withdraw_banned=1 AND is_banned=0", fetchone=True))[0]
+            rows = await db_query(
+                "SELECT user_id, username, balance FROM users WHERE is_withdraw_banned=1 AND is_banned=0 ORDER BY user_id DESC LIMIT 40",
+                fetchall=True)
+            if not rows:
+                await message.reply_text(f"{E['CHECK2']} Không có tài khoản nào bị cấm rút code.", parse_mode="HTML")
+                return
+            msg = f"{E['WARN']} <b>DANH SÁCH BỊ CẤM RÚT CODE</b> (tổng <b>{total_c:,}</b>)\n━━━━━━━━━━━━━━━━━━\n"
+            for u_id, u_name, bal in rows:
+                msg += f"• {('@' + u_name) if u_name else 'N/A'} | <code>{u_id}</code> | <code>{bal:,}đ</code>\n"
+            msg += f"\n{E['INFO']} Gỡ cấm: <code>/mocam ID</code>"
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/topsd":
+            rows = await db_query(
+                "SELECT user_id, username, balance FROM users WHERE is_banned=0 AND balance>0 ORDER BY balance DESC LIMIT 15",
+                fetchall=True)
+            if not rows:
+                await message.reply_text(f"{E['BANDAGE']} Chưa có user nào có số dư.", parse_mode="HTML")
+                return
+            medals = {1: E['GOLD_MEDAL'], 2: E['SILVER_MEDAL'], 3: E['BRONZE_MEDAL']}
+            msg = f"{E['MONEY']} <b>TOP 15 SỐ DƯ CAO NHẤT</b>\n━━━━━━━━━━━━━━━━━━\n"
+            for i, (u_id, u_name, bal) in enumerate(rows, start=1):
+                msg += f"{medals.get(i, E['RIGHT'])} <b>{i}.</b> {('@' + u_name) if u_name else 'N/A'} | <code>{u_id}</code> | <code>{bal:,}đ</code>\n"
+            await message.reply_text(msg, parse_mode="HTML")
+
+        elif cmd in ("/dupip", "/dupsdt"):
+            col = "ip_address" if cmd == "/dupip" else "phone_number"
+            label = "IP" if cmd == "/dupip" else "SĐT"
+            rows = await db_query(
+                f"SELECT {col}, COUNT(*), array_agg(user_id) FROM users "
+                f"WHERE {col} IS NOT NULL AND {col}<>'' GROUP BY {col} HAVING COUNT(*)>1 ORDER BY COUNT(*) DESC LIMIT 20",
+                fetchall=True)
+            if not rows:
+                await message.reply_text(f"{E['CHECK2']} Không có {label} nào bị dùng chung bởi nhiều tài khoản.", parse_mode="HTML")
+                return
+            msg = f"{E['GLOBE']} <b>{label} DÙNG CHUNG NHIỀU TÀI KHOẢN</b>\n━━━━━━━━━━━━━━━━━━\n\n"
+            for val, cnt, ids in rows:
+                ids_txt = ", ".join(f"<code>{i}</code>" for i in ids[:10])
+                msg += f"{E['WARN']} <code>{val}</code> — <b>{cnt}</b> tài khoản\n   ID: {ids_txt}\n\n"
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/gui":
+            if len(args) < 2:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/gui USER_ID Nội dung tin nhắn</code>", parse_mode="HTML")
+                return
+            try: target_id = int(args[0])
+            except ValueError:
+                await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
+                return
+            content = " ".join(args[1:]).strip()
+            try:
+                await context.bot.send_message(
+                    chat_id=target_id,
+                    text=f"{E['SPEAKER']} <b>TIN NHẮN TỪ ADMIN</b>\n━━━━━━━━━━━━━━━━━━\n\n{content}",
+                    parse_mode="HTML")
+                await message.reply_text(f"{E['CHECK2']} Đã gửi tin nhắn tới <code>{target_id}</code>.", parse_mode="HTML")
+            except Exception as exc:
+                await message.reply_text(f"{E['CROSS']} Gửi thất bại: <code>{exc}</code>", parse_mode="HTML")
+
         elif cmd == "/baotri":
             curr = await is_maintenance()
             new_val = "0" if curr else "1"
@@ -2400,7 +2622,8 @@ def main():
     admin_cmds = [
         "addcode", "dscode", "xoatb", "xoacodeall", "lsxoa", "xmtb", "kho", "rutcode", "resetall", "tong", "tb", "info", "ban", "moban",
         "cam", "mocam", "nap", "tru", "baotri", "checkgd", "checkbb", "bb", "lsfull", "dl", "bo", "moip", "mcall", "cpmo",
-        "check", "khoabuff", "checktv", "sdall"
+        "check", "khoabuff", "checktv", "sdall",
+        "bf", "thongke", "tim", "dsban", "dscam", "topsd", "dupip", "dupsdt", "gui"
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
