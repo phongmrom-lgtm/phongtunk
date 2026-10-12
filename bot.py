@@ -45,14 +45,8 @@ MINI_APP_URL = os.getenv("MINI_APP_URL", "https://phongmrom-lgtm.github.io/phong
 ADMIN_IDS = [5633649201, 7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Danh sách mặc định: chỉ dùng để nạp vào DB 1 lần đầu (bảng required_channels).
-# Sau đó quản lý bằng /addgroup, /delgroup, /listgroup trong bot.
-REQUIRED_CHECK_CHANNELS = [
-    "https://t.me/xomhit88", "@sancode22", "@xombao247",
-    "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
-    "@hocviencbm", "https://t.me/icbm988", "https://t.me/hit88cm",
-    "https://t.me/hocviencb", "https://t.me/khosukien9999",
-]
+# Nhóm/kênh yêu cầu tham gia KHÔNG đặt trong code nữa.
+# Thêm / xóa trực tiếp trong bot bằng /addgroup, /delgroup, /listgroup (lưu trong DB).
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
 
@@ -443,19 +437,6 @@ def _init_db_sync():
                     added_at TEXT
                 )
             """)
-            # Nạp 12 kênh mặc định một lần duy nhất
-            cursor.execute("SELECT value FROM settings WHERE key='channels_seeded'")
-            if not cursor.fetchone():
-                for ch in REQUIRED_CHECK_CHANNELS:
-                    ref = ("@" + ch.split("t.me/")[-1].strip("/")) if "t.me/" in ch else ch
-                    cursor.execute(
-                        "INSERT INTO required_channels (chat_ref, title, invite_url, added_at) "
-                        "VALUES (%s,%s,%s,%s) ON CONFLICT (chat_ref) DO NOTHING",
-                        (ref, ref, f"https://t.me/{ref.lstrip('@')}", get_now_str()),
-                    )
-                cursor.execute(
-                    "INSERT INTO settings (key, value) VALUES ('channels_seeded','1') ON CONFLICT (key) DO NOTHING"
-                )
         conn.commit()
         logger.info("Database PostgreSQL đã sẵn sàng.")
 
@@ -2054,13 +2035,15 @@ ADMIN_PAGES = [
             "• <b>/listgroup</b> – danh sách nhóm đang yêu cầu\n"
             "• <b>/checkgroup</b> – kiểm tra bot có là admin ở TẤT CẢ nhóm không\n"
             "• <b>/checkadmin</b> – kiểm tra bot có là admin ở 1 nhóm cụ thể không\n"
+            "• <b>/clearallgroup</b> – ⚠️ xóa TẤT CẢ nhóm yêu cầu tham gia\n"
             "• <b>/price</b> – xem giá code hiện tại\n"
             "• <b>/setprice</b> – đặt giá mới  |  <b>/upprice</b> – tăng giá  |  <b>/downprice</b> – giảm giá"
         ),
         "items": [
             ("/addgroup", "i", "addgroup", "PLUS"), ("/delgroup", "i", "delgroup", "TRASH"),
             ("/listgroup", "r", "listgroup", "PIN2"), ("/checkgroup", "r", "checkgroup", "SHIELD2"),
-            ("/checkadmin", "i", "checkadmin", "TARGET"), ("/price", "r", "price", "CARD"),
+            ("/checkadmin", "i", "checkadmin", "TARGET"), ("/clearallgroup", "c", "clearallgroup", "ALERT"),
+            ("/price", "r", "price", "CARD"),
             ("/setprice", "i", "setprice", "MONEY"), ("/upprice", "i", "upprice", "UPRIGHT"),
             ("/downprice", "i", "downprice", "NEXT"),
         ],
@@ -2104,6 +2087,7 @@ ADMIN_CONFIRM_TEXT = {
     "banbuff": "QUÉT BIO TOÀN HỆ THỐNG VÀ KHÓA TÀI KHOẢN BUFF (mất khá nhiều thời gian)",
     "resetverify": "RESET XÁC MINH CỦA TOÀN BỘ THÀNH VIÊN",
     "wipeall": "XÓA SẠCH TOÀN BỘ NGƯỜI DÙNG, KHO CODE VÀ GIAO DỊCH",
+    "clearallgroup": "XÓA TẤT CẢ NHÓM/KÊNH YÊU CẦU THAM GIA (user sẽ không bị bắt tham gia nhóm nào nữa)",
 }
 
 _ADMIN_ALL_CMDS = {cmd for pg in ADMIN_PAGES for _, _, cmd, _ in pg["items"] if cmd}
@@ -3366,6 +3350,19 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                     f"{E['CROSS']} Bot <b>CHƯA LÀ ADMIN</b> ở nhóm <b>{name}</b>.\n"
                     f"Trạng thái: <code>{_html.escape(str(status))[:80]}</code>", parse_mode="HTML")
 
+        elif cmd == "/clearallgroup":
+            def clear_channels(cursor):
+                cursor.execute("DELETE FROM required_channels")
+                return cursor.rowcount
+            n_del = await db_transaction(clear_channels)
+            CHANNEL_URLS.clear()
+            await message.reply_text(
+                f"{E['CHECK2']} <b>ĐÃ XÓA TẤT CẢ NHÓM YÊU CẦU THAM GIA!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"• Đã xóa: <b>{n_del:,}</b> nhóm/kênh.\n"
+                f"{E['INFO']} Thêm nhóm mới bằng <code>/addgroup</code>.",
+                parse_mode="HTML")
+
         # ========================================================
         # NHÓM 9: GIÁ CODE
         # ========================================================
@@ -3477,7 +3474,7 @@ def main():
         # Thông báo & hệ thống
         "broadcast", "sendmsg", "maint", "wipeall",
         # Nhóm yêu cầu & giá code
-        "addgroup", "delgroup", "listgroup", "checkgroup", "checkadmin",
+        "addgroup", "delgroup", "listgroup", "checkgroup", "checkadmin", "clearallgroup",
         "price", "setprice", "upprice", "downprice",
     ]
     for command in admin_cmds:
