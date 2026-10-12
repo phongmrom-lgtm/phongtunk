@@ -1,4 +1,5 @@
 import asyncio
+import html as _html
 import io
 import json
 import logging
@@ -44,6 +45,8 @@ MINI_APP_URL = os.getenv("MINI_APP_URL", "https://phongmrom-lgtm.github.io/phong
 ADMIN_IDS = [5633649201, 7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
+# Danh sách mặc định: chỉ dùng để nạp vào DB 1 lần đầu (bảng required_channels).
+# Sau đó quản lý bằng /addgroup, /delgroup, /listgroup trong bot.
 REQUIRED_CHECK_CHANNELS = [
     "https://t.me/xomhit88", "@sancode22", "@xombao247",
     "@thongbaohit88", "@sancodehit88", "@vtc345", "@vtc567",
@@ -53,6 +56,7 @@ REQUIRED_CHECK_CHANNELS = [
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
 
+# Giá mặc định; giá thật được lưu trong DB (settings.code_price) và đổi bằng /setprice
 CODE_PRICE = 2000
 MIN_WITHDRAW = 2000
 MAX_WITHDRAW = 10000
@@ -428,6 +432,30 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_code_stock_val ON code_stock(code_val)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_address)")
+
+            # ---- Bảng nhóm/kênh bắt buộc tham gia ----
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS required_channels (
+                    id BIGSERIAL PRIMARY KEY,
+                    chat_ref TEXT NOT NULL UNIQUE,
+                    title TEXT,
+                    invite_url TEXT,
+                    added_at TEXT
+                )
+            """)
+            # Nạp 12 kênh mặc định một lần duy nhất
+            cursor.execute("SELECT value FROM settings WHERE key='channels_seeded'")
+            if not cursor.fetchone():
+                for ch in REQUIRED_CHECK_CHANNELS:
+                    ref = ("@" + ch.split("t.me/")[-1].strip("/")) if "t.me/" in ch else ch
+                    cursor.execute(
+                        "INSERT INTO required_channels (chat_ref, title, invite_url, added_at) "
+                        "VALUES (%s,%s,%s,%s) ON CONFLICT (chat_ref) DO NOTHING",
+                        (ref, ref, f"https://t.me/{ref.lstrip('@')}", get_now_str()),
+                    )
+                cursor.execute(
+                    "INSERT INTO settings (key, value) VALUES ('channels_seeded','1') ON CONFLICT (key) DO NOTHING"
+                )
         conn.commit()
         logger.info("Database PostgreSQL đã sẵn sàng.")
 
@@ -497,6 +525,73 @@ async def check_bio_flag(bot, uid: int):
     except Exception as exc:
         logger.warning(f"Không đọc được bio user {uid}: {exc}")
         return None
+
+
+# ---------- Giá code (lưu DB, đổi được bằng lệnh admin) ----------
+async def load_code_price():
+    global CODE_PRICE
+    res = await db_query("SELECT value FROM settings WHERE key='code_price'", fetchone=True)
+    if res and str(res[0]).isdigit() and int(res[0]) > 0:
+        CODE_PRICE = int(res[0])
+
+
+async def save_code_price(new_price: int):
+    global CODE_PRICE
+    await db_query(
+        "INSERT INTO settings (key, value) VALUES ('code_price', %s) "
+        "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
+        (str(new_price),), commit=True,
+    )
+    CODE_PRICE = new_price
+
+
+def _parse_money(s: str):
+    try:
+        v = int(re.sub(r"[.,đĐ\s]", "", s))
+        return v if v > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+# ---------- Nhóm/kênh yêu cầu tham gia ----------
+CHANNEL_URLS = {}
+
+
+def _norm_chat_ref(raw: str):
+    raw = (raw or "").strip()
+    if "t.me/" in raw:
+        tail = raw.split("t.me/")[-1].split("?")[0].strip("/")
+        if not tail or tail.startswith("+") or tail.startswith("joinchat"):
+            return None
+        raw = "@" + tail
+    if re.fullmatch(r"-?\d{6,}", raw):
+        return raw
+    if re.fullmatch(r"@[A-Za-z0-9_]{4,}", raw):
+        return raw
+    if re.fullmatch(r"[A-Za-z0-9_]{4,}", raw):
+        return "@" + raw
+    return None
+
+
+def _api_chat_id(ref: str):
+    return int(ref) if ref.lstrip("-").isdigit() else ref
+
+
+async def get_required_channels():
+    return await db_query(
+        "SELECT id, chat_ref, title, invite_url FROM required_channels ORDER BY id ASC", fetchall=True
+    ) or []
+
+
+async def check_bot_admin(bot, ref: str):
+    """Trả về (là_admin, trạng_thái, chat)."""
+    try:
+        chat = await bot.get_chat(_api_chat_id(ref))
+        me = await bot.get_me()
+        m = await bot.get_chat_member(chat.id, me.id)
+        return (m.status in ("administrator", "creator")), m.status, chat
+    except Exception as exc:
+        return False, f"lỗi: {exc}", None
 
 
 # ---------- Bàn phím ----------
@@ -805,39 +900,37 @@ async def ensure_user_exists(update: Update):
 
 
 async def get_missing_channels(bot, user_id):
-    async def check_one(channel):
+    """Đọc danh sách nhóm bắt buộc từ DB, trả về nhãn các nhóm user chưa tham gia."""
+    rows = await get_required_channels()
+
+    async def check_one(ref, title, url):
+        if ref.startswith("@"):
+            label = ref
+        else:
+            label = re.sub(r"[<>&]", "", title or ref)
+        CHANNEL_URLS[label] = url or (f"https://t.me/{ref.lstrip('@')}" if ref.startswith("@") else None)
         try:
-            ch_target = channel
-            if "t.me/" in channel:
-                ch_target = "@" + channel.split("t.me/")[-1].strip("/")
-            member = await bot.get_chat_member(chat_id=ch_target, user_id=user_id)
+            member = await bot.get_chat_member(chat_id=_api_chat_id(ref), user_id=user_id)
             if member.status in ("left", "kicked"):
-                return channel
+                return label
         except Exception as exc:
-            logger.warning(f"Lỗi check kênh {channel} cho user {user_id}: {exc}")
-            return channel
+            logger.warning(f"Lỗi check kênh {ref} cho user {user_id}: {exc}")
+            return label
         return None
 
-    tasks = [check_one(ch) for ch in REQUIRED_CHECK_CHANNELS]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(*[check_one(r[1], r[2], r[3]) for r in rows])
     return [ch for ch in results if ch is not None]
 
 
 def build_channel_buttons(missing_channels):
-    CUSTOM_CHANNEL_URLS = {}
     buttons = []
     for ch in missing_channels:
-        if "t.me/" in ch:
-            channel_url = ch
-        else:
-            channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
-        buttons.append([InlineKeyboardButton(f"{EP['RIGHT']} Tham gia: {ch}", url=channel_url)])
+        url = CHANNEL_URLS.get(ch)
+        if url:
+            buttons.append([InlineKeyboardButton(f"{EP['RIGHT']} Tham gia: {ch}", url=url)])
     for ch in OPTIONAL_DISPLAY_CHANNELS:
-        if "t.me/" in ch:
-            channel_url = ch
-        else:
-            channel_url = CUSTOM_CHANNEL_URLS.get(ch, f"https://t.me/{ch.replace('@', '')}")
-        buttons.append([InlineKeyboardButton(f"{EP['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=channel_url)])
+        url = ch if "t.me/" in ch else f"https://t.me/{ch.replace('@', '')}"
+        buttons.append([InlineKeyboardButton(f"{EP['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=url)])
     buttons.append([InlineKeyboardButton("❇ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")])
     return buttons
 
@@ -1418,9 +1511,10 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if db_user[4] == 1:
             await message.reply_text(f"{E['CROSS']} <b>Tài khoản của bạn đã bị CẤM RÚT CODE!</b>", parse_mode="HTML")
             return
+        # Gắn giá hiện tại vào callback: nếu admin đổi giá sau đó, nút cũ sẽ báo lại thay vì trừ nhầm tiền
         buttons = [[InlineKeyboardButton(
             f"XÁC NHẬN MUA CODE (Giá {CODE_PRICE:,}đ)",
-            callback_data="buycode_confirm",
+            callback_data=f"buycode_confirm_{CODE_PRICE}",
             api_kwargs={"icon_custom_emoji_id": "6206196801775605920"},
         )]]
         await message.reply_text(
@@ -1549,7 +1643,19 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     balance = db_user[0]
 
-    if data == "buycode_confirm":
+    if data.startswith("buycode_confirm"):
+        # Nút cũ mang giá lúc hiển thị; nếu giá đã đổi thì báo lại, không trừ tiền
+        shown = data.replace("buycode_confirm", "").lstrip("_")
+        if shown.isdigit() and int(shown) != CODE_PRICE:
+            await query.edit_message_text(
+                f"{E['WARN']} <b>GIÁ CODE ĐÃ THAY ĐỔI!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"Giá hiện tại: <b>{CODE_PRICE:,}đ</b>\n"
+                f"Vui lòng bấm lại nút <b>Rút Code</b> để xem giá mới.",
+                parse_mode="HTML",
+            )
+            return
+
         if balance < CODE_PRICE:
             await query.edit_message_text(
                 f"{E['CROSS']} <b>SỐ DƯ KHÔNG ĐỦ!</b>\n"
@@ -1733,7 +1839,9 @@ async def adm_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{E['RIGHT']} <b>/banlist, /wdbanlist:</b> Danh sách bị khóa / bị cấm rút code.\n"
         f"{E['RIGHT']} <b>/topbal:</b> Top số dư cao nhất.\n"
         f"{E['RIGHT']} <b>/dupip, /dupphone:</b> IP / SĐT dùng chung nhiều tài khoản.\n"
-        f"{E['RIGHT']} <b>/sendmsg ID nội_dung:</b> Nhắn riêng cho 1 user."
+        f"{E['RIGHT']} <b>/sendmsg ID nội_dung:</b> Nhắn riêng cho 1 user.\n"
+        f"{E['RIGHT']} <b>/addgroup, /delgroup, /listgroup, /checkgroup:</b> Quản lý nhóm yêu cầu tham gia.\n"
+        f"{E['RIGHT']} <b>/price, /setprice, /upprice, /downprice:</b> Xem / đổi giá code."
     )
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML")
 
@@ -1938,6 +2046,25 @@ ADMIN_PAGES = [
             ("Cài đặt bật/tắt", "s", "", "LAPTOP"),
         ],
     },
+    {
+        "icon": "TOP", "title": "NHÓM YÊU CẦU & GIÁ CODE",
+        "desc": (
+            "• <b>/addgroup</b> – thêm nhóm/kênh bắt buộc (bot phải là admin)\n"
+            "• <b>/delgroup</b> – xóa nhóm (nhập ID số trong danh sách hoặc @username)\n"
+            "• <b>/listgroup</b> – danh sách nhóm đang yêu cầu\n"
+            "• <b>/checkgroup</b> – kiểm tra bot có là admin ở TẤT CẢ nhóm không\n"
+            "• <b>/checkadmin</b> – kiểm tra bot có là admin ở 1 nhóm cụ thể không\n"
+            "• <b>/price</b> – xem giá code hiện tại\n"
+            "• <b>/setprice</b> – đặt giá mới  |  <b>/upprice</b> – tăng giá  |  <b>/downprice</b> – giảm giá"
+        ),
+        "items": [
+            ("/addgroup", "i", "addgroup", "PLUS"), ("/delgroup", "i", "delgroup", "TRASH"),
+            ("/listgroup", "r", "listgroup", "PIN2"), ("/checkgroup", "r", "checkgroup", "SHIELD2"),
+            ("/checkadmin", "i", "checkadmin", "TARGET"), ("/price", "r", "price", "CARD"),
+            ("/setprice", "i", "setprice", "MONEY"), ("/upprice", "i", "upprice", "UPRIGHT"),
+            ("/downprice", "i", "downprice", "NEXT"),
+        ],
+    },
 ]
 
 ADMIN_INPUT_PROMPTS = {
@@ -1962,6 +2089,12 @@ ADMIN_INPUT_PROMPTS = {
     "checkref": "Nhập <b>USER_ID hoặc @username</b> người giới thiệu:",
     "broadcast": "Nhập nội dung thông báo gửi toàn bộ người dùng & nhóm:",
     "sendmsg": "Nhập: <code>USER_ID Nội dung tin nhắn</code>",
+    "addgroup": "Nhập: <code>@username</code> hoặc link <code>t.me/...</code>\n<i>Nhóm riêng tư:</i> <code>-100123... https://t.me/+linkmoi</code>\n⚠️ Bot phải là <b>admin</b> của nhóm trước.",
+    "delgroup": "Nhập <b>ID số</b> (trong /listgroup) hoặc <b>@username</b> nhóm cần xóa:",
+    "checkadmin": "Nhập <b>@username / link / ID</b> nhóm cần kiểm tra bot đã là admin chưa:",
+    "setprice": "Nhập giá code mới (VD: <code>3000</code>):",
+    "upprice": "Nhập số tiền muốn <b>TĂNG</b> giá (VD: <code>500</code>):",
+    "downprice": "Nhập số tiền muốn <b>GIẢM</b> giá (VD: <code>500</code>):",
 }
 
 ADMIN_CONFIRM_TEXT = {
@@ -1975,7 +2108,7 @@ ADMIN_CONFIRM_TEXT = {
 
 _ADMIN_ALL_CMDS = {cmd for pg in ADMIN_PAGES for _, _, cmd, _ in pg["items"] if cmd}
 
-ADMIN_TAB_NAMES = ["Kho Code", "Số Dư", "Khóa/Mở", "Tra Cứu", "Hệ Thống"]
+ADMIN_TAB_NAMES = ["Kho Code", "Số Dư", "Khóa/Mở", "Tra Cứu", "Hệ Thống", "Nhóm & Giá"]
 ADMIN_NAV_TEXTS = {"Trang Trước", "Trang Sau", "Đóng Menu"}
 admin_menu_page = {}  # user_id -> trang đang mở
 
@@ -2175,7 +2308,8 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 await message.reply_text(f"{E['CROSS']} Vui lòng nhập ID hợp lệ.", parse_mode="HTML")
                 return
         else:
-            # Các lệnh còn lại từ Menu: find, friends, biofriends, sendmsg, unall, uncap, skipip, unip, txlog, txfull, checkref...
+            # Các lệnh còn lại từ Menu: find, friends, biofriends, sendmsg, unall, uncap, skipip, unip, txlog, txfull, checkref,
+            # addgroup, delgroup, checkadmin, setprice, upprice, downprice...
             if not text_input:
                 await message.reply_text(f"{E['CROSS']} Vui lòng nhập dữ liệu hợp lệ.", parse_mode="HTML")
                 return
@@ -2763,6 +2897,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 f"{E['CARD']} Code đã bán hôm nay: <b>{buy_today[0]:,}</b> ({buy_today[1]:,}đ)\n"
                 f"{E['CARD']} Tổng code đã bán: <b>{buy_all:,}</b>\n"
                 f"{E['FIRE']} Kho code còn: <b>{stock:,}</b>\n"
+                f"{E['MONEY']} Giá code hiện tại: <b>{CODE_PRICE:,}đ</b>\n"
                 f"{E['GEAR']} Bảo trì: <b>{'ĐANG BẬT 🔴' if maint else 'Tắt 🟢'}</b>",
                 parse_mode="HTML",
             )
@@ -3098,6 +3233,174 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 parse_mode="HTML",
             )
 
+        # ========================================================
+        # NHÓM 8: NHÓM YÊU CẦU THAM GIA
+        # ========================================================
+        elif cmd == "/addgroup":
+            if not args:
+                await message.reply_text(
+                    f"{E['WARN']} <b>Cú pháp:</b> <code>/addgroup @username</code>\n"
+                    f"Nhóm riêng tư: <code>/addgroup -100123456 https://t.me/+linkmoi</code>",
+                    parse_mode="HTML")
+                return
+            ref = _norm_chat_ref(args[0])
+            if not ref:
+                await message.reply_text(
+                    f"{E['CROSS']} Không nhận diện được nhóm. Hãy dùng <b>@username</b>, link công khai hoặc ID <code>-100...</code> "
+                    f"(link mời dạng <code>t.me/+xxx</code> không tự kiểm tra được).", parse_mode="HTML")
+                return
+            invite_url = next((a for a in args[1:] if a.startswith("http")), None)
+
+            is_ad, status, chat = await check_bot_admin(context.bot, ref)
+            if chat is None:
+                await message.reply_text(
+                    f"{E['CROSS']} <b>Không truy cập được nhóm này!</b>\n"
+                    f"Hãy thêm bot vào nhóm và cấp quyền <b>admin</b> rồi thử lại.\n"
+                    f"<code>{_html.escape(status)}</code>", parse_mode="HTML")
+                return
+            if not is_ad:
+                await message.reply_text(
+                    f"{E['CROSS']} <b>BOT CHƯA LÀ ADMIN CỦA NHÓM NÀY!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"Trạng thái hiện tại của bot: <code>{status}</code>\n"
+                    f"{E['RIGHT']} Hãy thêm bot làm <b>admin</b> rồi thêm lại nhóm.", parse_mode="HTML")
+                return
+
+            store_ref = f"@{chat.username}" if chat.username else str(chat.id)
+            if not invite_url:
+                if chat.username:
+                    invite_url = f"https://t.me/{chat.username}"
+                else:
+                    await message.reply_text(
+                        f"{E['WARN']} Nhóm riêng tư cần kèm link mời:\n"
+                        f"<code>/addgroup {chat.id} https://t.me/+linkmoi</code>", parse_mode="HTML")
+                    return
+            title = chat.title or store_ref
+
+            def add_channel(cursor):
+                cursor.execute(
+                    "INSERT INTO required_channels (chat_ref, title, invite_url, added_at) "
+                    "VALUES (%s,%s,%s,%s) ON CONFLICT (chat_ref) DO NOTHING",
+                    (store_ref, title, invite_url, get_now_str()))
+                return cursor.rowcount == 1
+
+            ok = await db_transaction(add_channel)
+            if not ok:
+                await message.reply_text(f"{E['WARN']} Nhóm <b>{_html.escape(title)}</b> đã có trong danh sách rồi.", parse_mode="HTML")
+                return
+            await message.reply_text(
+                f"{E['CHECK2']} <b>ĐÃ THÊM NHÓM YÊU CẦU THAM GIA!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['RIGHT']} Tên: <b>{_html.escape(title)}</b>\n"
+                f"{E['TARGET']} Định danh: <code>{store_ref}</code>\n"
+                f"{E['SHIELD']} Bot là admin: <b>CÓ</b>", parse_mode="HTML")
+
+        elif cmd == "/delgroup":
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/delgroup ID_SỐ_hoặc_@username</code>", parse_mode="HTML")
+                return
+            key = args[0]
+
+            def del_channel(cursor):
+                if key.isdigit() and len(key) < 6:
+                    cursor.execute("DELETE FROM required_channels WHERE id=%s RETURNING chat_ref, title", (int(key),))
+                else:
+                    ref = _norm_chat_ref(key)
+                    if not ref:
+                        return None
+                    cursor.execute("DELETE FROM required_channels WHERE lower(chat_ref)=lower(%s) RETURNING chat_ref, title", (ref,))
+                return cursor.fetchone()
+
+            row = await db_transaction(del_channel)
+            if not row:
+                await message.reply_text(f"{E['CROSS']} Không tìm thấy nhóm này trong danh sách.", parse_mode="HTML")
+                return
+            await message.reply_text(
+                f"{E['CHECK2']} Đã xóa nhóm yêu cầu: <b>{_html.escape(row[1] or row[0])}</b> (<code>{row[0]}</code>)",
+                parse_mode="HTML")
+
+        elif cmd == "/listgroup":
+            rows = await get_required_channels()
+            if not rows:
+                await message.reply_text(f"{E['BANDAGE']} Chưa có nhóm nào bắt buộc tham gia.", parse_mode="HTML")
+                return
+            msg = f"{E['TOP']} <b>NHÓM ĐANG YÊU CẦU THAM GIA</b> (<b>{len(rows)}</b>)\n━━━━━━━━━━━━━━━━━━\n"
+            for rid, ref, title, url in rows:
+                msg += (f"• ID: <code>{rid}</code> | <b>{_html.escape(title or ref)}</b>\n"
+                        f"   <code>{ref}</code> | {_html.escape(url or 'không có link')}\n")
+            msg += f"\n{E['INFO']} Xóa: <code>/delgroup ID</code>"
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/checkgroup":
+            rows = await get_required_channels()
+            if not rows:
+                await message.reply_text(f"{E['BANDAGE']} Chưa có nhóm nào để kiểm tra.", parse_mode="HTML")
+                return
+            await message.reply_text(f"{E['HOURGLASS']} Đang kiểm tra quyền admin của bot ở {len(rows)} nhóm...", parse_mode="HTML")
+            results = await asyncio.gather(*[check_bot_admin(context.bot, r[1]) for r in rows])
+            ok_cnt = sum(1 for r in results if r[0])
+            msg = (f"{E['SHIELD']} <b>KẾT QUẢ KIỂM TRA ADMIN</b>\n━━━━━━━━━━━━━━━━━━\n"
+                   f"{E['CHECK2']} Bot là admin: <b>{ok_cnt}</b> | {E['CROSS']} Chưa/Lỗi: <b>{len(rows) - ok_cnt}</b>\n\n")
+            for (rid, ref, title, url), (is_ad, status, _c) in zip(rows, results):
+                icon = E['CHECK2'] if is_ad else E['CROSS']
+                msg += f"{icon} ID <code>{rid}</code> | <b>{_html.escape(title or ref)}</b> — <code>{_html.escape(str(status))[:60]}</code>\n"
+            if ok_cnt < len(rows):
+                msg += (f"\n{E['WARN']} Nhóm chưa có quyền admin sẽ khiến mọi user bị báo \"chưa tham gia\". "
+                        f"Hãy cấp admin cho bot hoặc xóa nhóm bằng <code>/delgroup</code>.")
+            await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
+
+        elif cmd == "/checkadmin":
+            if not args:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/checkadmin @username</code>", parse_mode="HTML")
+                return
+            ref = _norm_chat_ref(args[0])
+            if not ref:
+                await message.reply_text(f"{E['CROSS']} Nhóm không hợp lệ.", parse_mode="HTML")
+                return
+            is_ad, status, chat = await check_bot_admin(context.bot, ref)
+            name = _html.escape(chat.title) if chat and chat.title else ref
+            if is_ad:
+                await message.reply_text(f"{E['CHECK2']} Bot <b>ĐÃ LÀ ADMIN</b> ở nhóm <b>{name}</b> ({status}).", parse_mode="HTML")
+            else:
+                await message.reply_text(
+                    f"{E['CROSS']} Bot <b>CHƯA LÀ ADMIN</b> ở nhóm <b>{name}</b>.\n"
+                    f"Trạng thái: <code>{_html.escape(str(status))[:80]}</code>", parse_mode="HTML")
+
+        # ========================================================
+        # NHÓM 9: GIÁ CODE
+        # ========================================================
+        elif cmd == "/price":
+            await message.reply_text(
+                f"{E['MONEY']} <b>Giá code hiện tại:</b> <code>{CODE_PRICE:,}đ</code>\n"
+                f"{E['INFO']} Đổi giá: <code>/setprice</code> · <code>/upprice</code> · <code>/downprice</code>",
+                parse_mode="HTML")
+
+        elif cmd in ("/setprice", "/upprice", "/downprice"):
+            val = _parse_money(args[0]) if args else None
+            if val is None:
+                await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>{cmd} SỐ_TIỀN</code> (số nguyên lớn hơn 0)", parse_mode="HTML")
+                return
+            old_price = CODE_PRICE
+            if cmd == "/setprice":
+                new_price = val
+            elif cmd == "/upprice":
+                new_price = old_price + val
+            else:
+                new_price = old_price - val
+            if new_price <= 0:
+                await message.reply_text(f"{E['CROSS']} Giá sau khi giảm phải lớn hơn 0 (hiện tại {old_price:,}đ).", parse_mode="HTML")
+                return
+            await save_code_price(new_price)
+            arrow = E['UP'] if new_price > old_price else (E['DOWN'] if new_price < old_price else E['RIGHT'])
+            await message.reply_text(
+                f"{E['CHECK2']} <b>ĐÃ CẬP NHẬT GIÁ CODE!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['MONEY']} Giá cũ: <code>{old_price:,}đ</code>\n"
+                f"{arrow} Giá mới: <b><code>{new_price:,}đ</code></b>\n\n"
+                f"{E['INFO']} Mọi thông báo giá (menu Rút Code, Mời Bạn Bè, nút mua, đơn chờ duyệt) đã tự cập nhật. "
+                f"Muốn báo user thì dùng <code>/broadcast</code>.",
+                parse_mode="HTML")
+
     except Exception as ecx:
         logger.exception("Lỗi admin command %s: %s", cmd, ecx)
         await message.reply_text(f"{E['CROSS']} Đã xảy ra lỗi khi xử lý lệnh.", parse_mode="HTML")
@@ -3132,6 +3435,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(application: Application) -> None:
     await init_db()
+    await load_code_price()
 
 
 def main():
@@ -3172,6 +3476,9 @@ def main():
         "biofriends", "scanbio", "banbuff", "checkref",
         # Thông báo & hệ thống
         "broadcast", "sendmsg", "maint", "wipeall",
+        # Nhóm yêu cầu & giá code
+        "addgroup", "delgroup", "listgroup", "checkgroup", "checkadmin",
+        "price", "setprice", "upprice", "downprice",
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
