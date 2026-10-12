@@ -50,6 +50,10 @@ TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
 
+# ---- Link game (nút "Link Game" trong menu) ----
+GAME_CODE_URL = "https://t.me/xombao247"       # nút "Nhập Code Tại Đây"
+GAME_ROOM_URL = "https://t.me/gamehit88_bot"   # nút "Link room tại đây"
+
 # Giá mặc định; giá thật được lưu trong DB (settings.code_price) và đổi bằng /setprice
 CODE_PRICE = 2000
 MIN_WITHDRAW = 2000
@@ -70,6 +74,7 @@ MENU_ICON_IDS = {
     "top": "6188266996941985323",       # 🤣
     "support": "6188179499868229800",   # 🌟
     "history": "6186110304884101722",   # 🌟
+    "game": "6102831593389299866",      # 🌟 (nút Link Game)
     "admin": "5341715473882955310",     # ⚙️ (nút Menu dành cho admin)
 }
 
@@ -208,6 +213,13 @@ _EMOJI_DEFS = {
     "ABC_17": ("5361871785467857730", "🔠"),
     "ABC_18": ("5364023048687078741", "🔠"),
     "ABC_19": ("5364149466754468020", "🔠"),
+    # ---- 6 emoji động dùng cho mục "Link Game" ----
+    "GAME_STAR": ("6102831593389299866", "🌟"),
+    "GAME_STARSTRUCK": ("6167959932004997710", "🤩"),
+    "GAME_CAR": ("6280407793631498213", "🚗"),
+    "GAME_TONGUE": ("6192771593001767805", "👅"),
+    "GAME_STORM": ("6260461407163126795", "⛈"),
+    "GAME_BELL": ("5440833702642857683", "🔔"),
 }
 E = {k: f'<tg-emoji emoji-id="{v[0]}">{v[1]}</tg-emoji>' for k, v in _EMOJI_DEFS.items()}
 EP = {k: v[1] for k, v in _EMOJI_DEFS.items()}
@@ -625,6 +637,7 @@ def get_main_keyboard(user_id=None):
         [_menu_btn("Tài Khoản", "account"), _menu_btn("Mời Bạn Bè", "invite")],
         [_menu_btn("Rút Code", "withdraw"), _menu_btn("Top", "top")],
         [_menu_btn("Nhóm Hỗ Trợ", "support"), _menu_btn("Lịch Sử Giao Dịch", "history")],
+        [_menu_btn("Link Game", "game")],
     ]
     # Nút "Menu" chỉ hiện với admin
     if user_id in ADMIN_IDS:
@@ -640,6 +653,14 @@ def get_contact_keyboard():
 def get_miniapp_keyboard():
     keyboard = [[KeyboardButton("🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP", web_app=WebAppInfo(url=MINI_APP_URL))]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+
+def get_game_link_markup():
+    """2 nút link xếp dọc: 'Nhập Code Tại Đây' và bên dưới là 'Link room tại đây'."""
+    return InlineKeyboardMarkup([
+        [ibtn("Nhập Code Tại Đây", _EMOJI_DEFS["GAME_STARSTRUCK"][0], url=GAME_CODE_URL)],
+        [ibtn("Link room tại đây", _EMOJI_DEFS["GAME_CAR"][0], url=GAME_ROOM_URL)],
+    ])
 
 
 # ============================================================
@@ -1506,6 +1527,20 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{E['PHONE']} <b>NHÓM HỖ TRỢ CHÍNH THỨC:</b>\n{E['RIGHT']} {SUPPORT_GROUP}\n\n"
             f"{E['DEV']} <b>ADMIN:</b> @dgfrutil",
             parse_mode="HTML",
+        )
+
+    # ---------- Link game ----------
+    elif text in ["Link Game", "🎮 Link Game"]:
+        await message.reply_text(
+            f"{E['GAME_BELL']} <b>LINK GAME</b> {E['GAME_STAR']}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{E['GAME_STARSTRUCK']} Bấm <b>Nhập Code Tại Đây</b> để nhập code vừa mua.\n"
+            f"{E['GAME_CAR']} Bấm <b>Link room tại đây</b> để vào phòng chơi game.\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{E['GAME_STORM']} Chúc anh em chơi vui vẻ và may mắn! {E['GAME_TONGUE']}",
+            reply_markup=get_game_link_markup(),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
         )
 
     # ---------- Lịch sử giao dịch ----------
@@ -3452,7 +3487,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
 # ============================================================
 MENU_BUTTON_TEXTS = (
     "Tài Khoản", "Mời Bạn Bè", "Rút Code", "Top",
-    "Nhóm Hỗ Trợ", "Lịch Sử Giao Dịch", "Menu",
+    "Nhóm Hỗ Trợ", "Lịch Sử Giao Dịch", "Link Game", "Menu",
 )
 
 
