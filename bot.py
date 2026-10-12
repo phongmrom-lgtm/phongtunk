@@ -73,6 +73,35 @@ MENU_ICON_IDS = {
     "admin": "5341715473882955310",     # ⚙️ (nút Menu dành cho admin)
 }
 
+# ------------------------------------------------------------
+# 21 ID EMOJI ĐỘNG DÀNH CHO CÁC NÚT "THAM GIA" + "XÁC NHẬN ĐÃ THAM GIA"
+# Mỗi nút tham gia lấy lần lượt 1 emoji trong danh sách (hết thì quay vòng).
+# ------------------------------------------------------------
+JOIN_BTN_EMOJI_IDS = [
+    "5197226061011623665",  # 😕
+    "5237968923940364244",  # 🥳
+    "5195357093107868151",  # 🤩
+    "5197673179992038546",  # 😏
+    "5237981615568723131",  # 🏃‍♀️
+    "5237899560218534031",  # 🕺
+    "5240086364292129541",  # 🦆
+    "5235640209852343235",  # 😱
+    "5235762367312173706",  # 🔫
+    "5235650728227251200",  # 🕺
+    "5235871588330512091",  # 💃
+    "5240141073585544010",  # 💃
+    "5456164124549454257",  # ☺️
+    "5240457247603039842",  # 😮
+    "5461124828956203070",  # 😬
+    "5460621222565910361",  # 😡
+    "5240072895274688214",  # 🌭
+    "5240249594524214417",  # 👅
+    "5242500342070909767",  # 😨
+    "5237721297600912488",  # 😧
+    "5240076365608264313",  # 🤪
+]
+CONFIRM_JOIN_EMOJI_ID = "5237968923940364244"  # 🥳 cho nút XÁC NHẬN ĐÃ THAM GIA
+
 # ============================================================
 # 3. EMOJI ĐỘNG (CUSTOM PREMIUM EMOJI)
 #   E  : dùng trong NỘI DUNG tin nhắn (parse_mode="HTML")
@@ -291,6 +320,14 @@ def abtn(text: str, icon_key: str, **kwargs) -> InlineKeyboardButton:
     Chữ trên nút KHÔNG chứa emoji thường."""
     api = dict(kwargs.pop("api_kwargs", None) or {})
     api["icon_custom_emoji_id"] = AI[icon_key][0]
+    return InlineKeyboardButton(text, api_kwargs=api, **kwargs)
+
+
+def ibtn(text: str, emoji_id: str, **kwargs) -> InlineKeyboardButton:
+    """Nút inline gắn emoji động theo ID trực tiếp (dùng cho nút tham gia nhóm).
+    Chữ trên nút KHÔNG chứa emoji thường."""
+    api = dict(kwargs.pop("api_kwargs", None) or {})
+    api["icon_custom_emoji_id"] = emoji_id
     return InlineKeyboardButton(text, api_kwargs=api, **kwargs)
 
 
@@ -904,15 +941,22 @@ async def get_missing_channels(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
+    """Nút tham gia nhóm: mỗi nút 1 emoji động (icon_custom_emoji_id), lần lượt trong 21 ID.
+    Chữ trên nút KHÔNG chứa emoji thường."""
     buttons = []
+    idx = 0
     for ch in missing_channels:
         url = CHANNEL_URLS.get(ch)
         if url:
-            buttons.append([InlineKeyboardButton(f"{EP['RIGHT']} Tham gia: {ch}", url=url)])
+            emoji_id = JOIN_BTN_EMOJI_IDS[idx % len(JOIN_BTN_EMOJI_IDS)]
+            buttons.append([ibtn(f"Tham gia: {ch}", emoji_id, url=url)])
+            idx += 1
     for ch in OPTIONAL_DISPLAY_CHANNELS:
         url = ch if "t.me/" in ch else f"https://t.me/{ch.replace('@', '')}"
-        buttons.append([InlineKeyboardButton(f"{EP['LOVE_FACE']} Tham gia: {ch} (Tham khảo)", url=url)])
-    buttons.append([InlineKeyboardButton("❇ XÁC NHẬN ĐÃ THAM GIA ❇️", callback_data="verify_join")])
+        emoji_id = JOIN_BTN_EMOJI_IDS[idx % len(JOIN_BTN_EMOJI_IDS)]
+        buttons.append([ibtn(f"Tham gia: {ch} (Tham khảo)", emoji_id, url=url)])
+        idx += 1
+    buttons.append([ibtn("XÁC NHẬN ĐÃ THAM GIA", CONFIRM_JOIN_EMOJI_ID, callback_data="verify_join")])
     return buttons
 
 
