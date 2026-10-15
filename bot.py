@@ -857,6 +857,303 @@ async def proceed_next_verification(
     await finalize_user_registration(user, context)
 
 
+# ============================================================
+# CÁC HÀM BỊ THIẾU
+# ============================================================
+async def handle_anti_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Trả về True nếu user đang bị chặn do spam (đã xử lý xong, không chạy tiếp)."""
+    user = update.effective_user
+    if not user or user.id in ADMIN_IDS:
+        return False
+    uid = user.id
+    now = time.time()
+
+    ban_until = temp_bans.get(uid)
+    if ban_until:
+        if now < ban_until:
+            return True
+        temp_bans.pop(uid, None)
+        user_msg_tracker.pop(uid, None)
+
+    timestamps = [t for t in user_msg_tracker[uid] if now - t <= SPAM_WINDOW_SECONDS]
+    timestamps.append(now)
+    user_msg_tracker[uid] = timestamps
+
+    if len(timestamps) > SPAM_MAX_MESSAGES:
+        temp_bans[uid] = now + TEMP_BAN_MINUTES * 60
+        user_msg_tracker.pop(uid, None)
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text=(
+                    f"{E['WARN']} <b>BẠN GỬI TIN NHẮN QUÁ NHANH!</b>\n"
+                    f"Tạm khóa thao tác trong <b>{TEMP_BAN_MINUTES} phút</b>."
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        return True
+    return False
+
+
+async def ensure_user_exists(update: Update):
+    """Trả về: (user_id, balance, username, is_banned, is_withdraw_banned,
+    referrer_id, phone_number, ip_address)"""
+    user = update.effective_user
+    if not user:
+        return None
+    q = (
+        "SELECT user_id, balance, username, is_banned, is_withdraw_banned, "
+        "referrer_id, phone_number, ip_address FROM users WHERE user_id=%s"
+    )
+    row = await db_query(q, (user.id,), fetchone=True)
+    if not row:
+        await db_query(
+            "INSERT INTO users (user_id, username, balance, joined_at) "
+            "VALUES (%s, %s, 0, %s) ON CONFLICT (user_id) DO NOTHING",
+            (user.id, user.username or "", get_now_str()),
+            commit=True,
+        )
+        row = await db_query(q, (user.id,), fetchone=True)
+    return row
+
+
+async def _check_flag(user_id: int, column: str) -> bool:
+    res = await db_query(
+        f"SELECT {column} FROM users WHERE user_id=%s", (user_id,), fetchone=True
+    )
+    return bool(res and res[0] == 1)
+
+
+async def check_phone_verified(user_id: int) -> bool:
+    res = await db_query(
+        "SELECT phone_number FROM users WHERE user_id=%s", (user_id,), fetchone=True
+    )
+    return bool(res and res[0])
+
+
+async def check_ip_verified(user_id: int) -> bool:
+    res = await db_query(
+        "SELECT ip_address, skip_ip FROM users WHERE user_id=%s",
+        (user_id,),
+        fetchone=True,
+    )
+    return bool(res and (res[0] or res[1] == 1))
+
+
+async def check_captcha_verified(user_id: int) -> bool:
+    return await _check_flag(user_id, "captcha_verified")
+
+
+async def check_miniapp_captcha_verified(user_id: int) -> bool:
+    return await _check_flag(user_id, "miniapp_captcha_verified")
+
+
+async def check_camera_verified(user_id: int) -> bool:
+    return await _check_flag(user_id, "camera_verified")
+
+
+async def check_cccam_verified(user_id: int) -> bool:
+    return await _check_flag(user_id, "cccam_verified")
+
+
+async def _send_to(message_or_bot, user_id, text, reply_markup=None):
+    if hasattr(message_or_bot, "reply_text"):
+        await message_or_bot.reply_text(
+            text, reply_markup=reply_markup, parse_mode="HTML"
+        )
+    else:
+        await message_or_bot.send_message(
+            chat_id=user_id, text=text, reply_markup=reply_markup, parse_mode="HTML"
+        )
+
+
+async def prompt_phone_verification(message_or_bot, user_id):
+    await _send_to(
+        message_or_bot,
+        user_id,
+        f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['WARN']} Bạn cần chia sẻ số điện thoại <b>Việt Nam (+84)</b> của chính mình để tiếp tục.\n"
+        f"{E['RIGHT']} Nhấn nút <b>📱 Chia sẻ số điện thoại</b> bên dưới!",
+        get_contact_keyboard(),
+    )
+
+
+async def prompt_ip_verification(message_or_bot, user_id):
+    await _send_to(
+        message_or_bot,
+        user_id,
+        f"{E['GLOBE']} <b>XÁC MINH IP</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['WARN']} Bạn cần xác minh địa chỉ IP qua Mini App để tiếp tục.\n"
+        f"{E['RIGHT']} Nhấn nút <b>🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP</b> bên dưới!",
+        get_miniapp_keyboard(),
+    )
+
+
+# ---------------- CAPTCHA ẢNH ----------------
+def _make_captcha_image(code: str) -> io.BytesIO:
+    w, h = 260, 100
+    img = Image.new("RGB", (w, h), (245, 245, 245))
+    draw = ImageDraw.Draw(img)
+    font = None
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "DejaVuSans-Bold.ttf",
+        "arial.ttf",
+    ):
+        try:
+            font = ImageFont.truetype(path, 52)
+            break
+        except Exception:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+
+    for _ in range(8):
+        draw.line(
+            [(random.randint(0, w), random.randint(0, h)),
+             (random.randint(0, w), random.randint(0, h))],
+            fill=(random.randint(120, 200),) * 3,
+            width=2,
+        )
+    x = 18
+    for ch in code:
+        y = random.randint(8, 24)
+        draw.text(
+            (x, y),
+            ch,
+            font=font,
+            fill=(random.randint(0, 100), random.randint(0, 100), random.randint(0, 100)),
+        )
+        x += 46
+    for _ in range(150):
+        draw.point(
+            (random.randint(0, w - 1), random.randint(0, h - 1)),
+            fill=(random.randint(0, 255),) * 3,
+        )
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    bio.seek(0)
+    bio.name = "captcha.png"
+    return bio
+
+
+async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    code = "".join(random.choice(alphabet) for _ in range(5))
+    old = pending_captcha_users.get(user_id) or {}
+    pending_captcha_users[user_id] = {
+        "code": code,
+        "expires_at": datetime.now() + timedelta(minutes=5),
+        "attempts": old.get("attempts", 0),
+    }
+    await context.bot.send_photo(
+        chat_id=user_id,
+        photo=_make_captcha_image(code),
+        caption=(
+            f"{E['SHIELD']} <b>XÁC MINH CAPTCHA</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{E['RIGHT']} Nhập đúng <b>5 ký tự</b> trong ảnh (không phân biệt hoa/thường).\n"
+            f"{E['HOURGLASS']} Hiệu lực: <b>5 phút</b>"
+        ),
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, user_input: str) -> bool:
+    """True = tin nhắn đã được xử lý như đáp án captcha."""
+    pending = pending_captcha_users.get(user_id)
+    message = update.effective_message
+    user = update.effective_user
+    if not pending or not message or not user:
+        return False
+
+    if datetime.now() > pending["expires_at"]:
+        pending_captcha_users.pop(user_id, None)
+        await message.reply_text(
+            f"{E['HOURGLASS']} <b>Captcha đã hết hạn!</b> Đang tạo mã mới...",
+            parse_mode="HTML",
+        )
+        await send_captcha_challenge(message, context, user_id)
+        return True
+
+    if user_input.strip().upper() == pending["code"]:
+        pending_captcha_users.pop(user_id, None)
+        await db_query(
+            "UPDATE users SET captcha_verified=1 WHERE user_id=%s",
+            (user_id,),
+            commit=True,
+        )
+        await message.reply_text(
+            f"{E['CHECK']} Xác minh Captcha thành công!\n\n"
+            f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
+            parse_mode="HTML",
+        )
+        await proceed_next_verification(message, context, user)
+        return True
+
+    pending["attempts"] += 1
+    if pending["attempts"] >= 5:
+        pending_captcha_users.pop(user_id, None)
+        await message.reply_text(
+            f"{E['CROSS']} <b>Sai quá 5 lần!</b> Đang tạo captcha mới...",
+            parse_mode="HTML",
+        )
+    else:
+        await message.reply_text(
+            f"{E['CROSS']} <b>Sai captcha!</b> Còn <b>{5 - pending['attempts']}</b> lần thử. Đang tạo mã mới...",
+            parse_mode="HTML",
+        )
+    await send_captcha_challenge(message, context, user_id)
+    return True
+
+
+# ---------------- KIỂM TRA NHÓM / KÊNH ----------------
+async def _is_member(bot, chat_ref: str, user_id: int) -> bool:
+    try:
+        m = await bot.get_chat_member(_api_chat_id(chat_ref), user_id)
+        if m.status in ("member", "administrator", "creator"):
+            return True
+        if m.status == "restricted":
+            return bool(getattr(m, "is_member", True))
+        return False
+    except Exception as exc:
+        logger.warning("Không check được thành viên %s ở %s: %s", user_id, chat_ref, exc)
+        return False
+
+
+async def get_missing_channels(bot, user_id: int):
+    """Trả về danh sách TÊN nhóm/kênh mà user chưa tham gia."""
+    rows = await get_required_channels()
+    if not rows:
+        return []
+    results = await asyncio.gather(*[_is_member(bot, r[1], user_id) for r in rows])
+    missing = []
+    for (rid, ref, title, url), joined in zip(rows, results):
+        if not joined:
+            name = title or ref
+            missing.append(name)
+            CHANNEL_URLS[name] = url or (
+                f"https://t.me/{ref.lstrip('@')}" if ref.startswith("@") else None
+            )
+    return missing
+
+
+def build_channel_buttons(missing_channels):
+    buttons = []
+    for name in missing_channels:
+        url = CHANNEL_URLS.get(name)
+        if url:
+            buttons.append([ibtn(f"Tham gia {name}"[:60], random.choice(JOIN_BTN_EMOJI_IDS), url=url)])
+    buttons.append([ibtn("XÁC NHẬN ĐÃ THAM GIA", CONFIRM_JOIN_EMOJI_ID, callback_data="verify_join")])
+    return buttons
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await handle_anti_spam(update, context):
         return
@@ -1364,7 +1661,7 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_full = await context.bot.get_chat(user.id)
         bio = chat_full.bio or ""
-        if "@Lienminhvietnam" in bio.lower():
+        if BIO_FLAG in bio.lower():
             db_user_info = await db_query(
                 "SELECT referrer_id FROM users WHERE user_id=%s",
                 (user.id,),
@@ -4044,7 +4341,7 @@ async def admin_commands(
                 try:
                     chat_full = await context.bot.get_chat(u_id)
                     bio = chat_full.bio or ""
-                    if "@Lienminhvietnam" in bio.lower():
+                    if BIO_FLAG in bio.lower():
                         if ref_id:
                             banned_pairs.append((ref_id, u_id))
                             referrer_map[ref_id].append(u_id)
@@ -4150,7 +4447,7 @@ async def admin_commands(
                 try:
                     chat_full = await context.bot.get_chat(u_id)
                     bio = chat_full.bio or ""
-                    if "@Lienminhvietnam" in bio.lower():
+                    if BIO_FLAG in bio.lower():
                         if ref_id:
                             banned_pairs.append((ref_id, u_id))
                             referrer_map[ref_id].append(u_id)
@@ -4270,7 +4567,7 @@ async def admin_commands(
                 try:
                     chat_full = await context.bot.get_chat(u_id)
                     bio = chat_full.bio or ""
-                    if "@Lienminhvietnam" in bio.lower():
+                    if BIO_FLAG in bio.lower():
                         matched_referred.append((u_id, u_uname, u_phone, u_ip))
                 except Exception as e:
                     logger.warning(f"Lỗi check bio user {u_id}: {e}")
