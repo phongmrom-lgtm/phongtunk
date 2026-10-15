@@ -7,6 +7,7 @@ import os
 import random
 import re
 import base64
+import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -64,6 +65,9 @@ REFERRAL_REWARD = 1000
 SPAM_WINDOW_SECONDS = 4
 SPAM_MAX_MESSAGES = 10
 TEMP_BAN_MINUTES = 2
+
+# Thời gian hiệu lực của phiên captcha MiniApp (phút)
+MINIAPP_CAPTCHA_TTL_MINUTES = 10
 
 BIO_FLAG = "@lienminhvietnam"
 
@@ -327,6 +331,7 @@ user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
 pending_captcha_users = {}
+pending_miniapp_captcha = {}
 admin_input_states = {}
 
 logging.basicConfig(
@@ -403,6 +408,7 @@ def _init_db_sync():
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address TEXT;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS skip_ip INTEGER DEFAULT 0;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS captcha_verified INTEGER DEFAULT 0;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS miniapp_captcha_verified INTEGER DEFAULT 0;")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS transactions (
                     id BIGSERIAL PRIMARY KEY,
@@ -436,6 +442,7 @@ def _init_db_sync():
                 ('maintenance', '0'), ('verify_phone', '1'), ('verify_ip', '1'),
                 ('verify_channel', '1'), ('verify_captcha', '1'), ('allow_withdraw', '1'),
                 ('auto_buy_code', '1'), ('verify_camera', '1'),
+                ('verify_miniapp_captcha', '1'),
             ]
             for key, val in default_settings:
                 cursor.execute(
@@ -613,6 +620,19 @@ def get_contact_keyboard():
 
 def get_miniapp_keyboard():
     keyboard = [[KeyboardButton("🌐 BẤM VÀO ĐÂY ĐỂ XÁC MINH IP", web_app=WebAppInfo(url=MINI_APP_URL))]]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+
+def build_miniapp_captcha_url(token: str) -> str:
+    sep = "&" if "?" in MINI_APP_URL else "?"
+    return f"{MINI_APP_URL}{sep}mode=captcha&token={token}"
+
+
+def get_miniapp_captcha_keyboard(token: str):
+    keyboard = [[KeyboardButton(
+        "🧩 BẤM VÀO ĐÂY ĐỂ XÁC MINH CAPTCHA",
+        web_app=WebAppInfo(url=build_miniapp_captcha_url(token)),
+    )]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
@@ -950,6 +970,11 @@ async def check_captcha_verified(user_id) -> bool:
     return bool(row and row[0] == 1)
 
 
+async def check_miniapp_captcha_verified(user_id) -> bool:
+    row = await db_query("SELECT miniapp_captcha_verified FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    return bool(row and row[0] == 1)
+
+
 async def prompt_phone_verification(message_or_bot, user_id):
     msg = (
         f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
@@ -964,6 +989,26 @@ async def prompt_phone_verification(message_or_bot, user_id):
         await message_or_bot.reply_text(msg, reply_markup=get_contact_keyboard(), parse_mode="HTML")
     else:
         await message_or_bot.send_message(chat_id=user_id, text=msg, reply_markup=get_contact_keyboard(), parse_mode="HTML")
+
+
+async def prompt_miniapp_captcha_verification(message_or_bot, user_id):
+    token = secrets.token_urlsafe(12)
+    pending_miniapp_captcha[user_id] = {
+        "token": token,
+        "expires_at": datetime.now() + timedelta(minutes=MINIAPP_CAPTCHA_TTL_MINUTES),
+    }
+    msg = (
+        f"{E['SHIELD']} <b>XÁC MINH CAPTCHA MINI APP</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{E['WARN']} Bạn <b>bắt buộc</b> phải hoàn thành captcha trong Mini App mới được sử dụng bot.\n"
+        f"{E['HOURGLASS']} Hiệu lực: <b>{MINIAPP_CAPTCHA_TTL_MINUTES} phút</b>\n"
+        f"{E['RIGHT']} Nhấn nút <b>🧩 BẤM VÀO ĐÂY ĐỂ XÁC MINH CAPTCHA</b> bên dưới và hoàn thành captcha!"
+    )
+    kb = get_miniapp_captcha_keyboard(token)
+    if hasattr(message_or_bot, "reply_text"):
+        await message_or_bot.reply_text(msg, reply_markup=kb, parse_mode="HTML")
+    else:
+        await message_or_bot.send_message(chat_id=user_id, text=msg, reply_markup=kb, parse_mode="HTML")
 
 
 async def prompt_ip_verification(message_or_bot, user_id):
@@ -981,16 +1026,25 @@ async def prompt_ip_verification(message_or_bot, user_id):
 async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT_TYPE, user):
     user_id = user.id
 
+    # Bước 1: Số điện thoại
     if await get_verify_setting("verify_phone"):
         if not await check_phone_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_phone_verification(update_or_msg, user_id)
             return
 
+    # Bước 2: Captcha MiniApp (ngay sau xác minh SĐT, chưa qua thì không dùng được bot)
+    if await get_verify_setting("verify_miniapp_captcha"):
+        if not await check_miniapp_captcha_verified(user_id) and user_id not in ADMIN_IDS:
+            await prompt_miniapp_captcha_verification(update_or_msg, user_id)
+            return
+
+    # Bước 3: IP MiniApp
     if await get_verify_setting("verify_ip"):
         if not await check_ip_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_ip_verification(update_or_msg, user_id)
             return
 
+    # Bước 4: Captcha phép tính
     if await get_verify_setting("verify_captcha"):
         if not await check_captcha_verified(user_id) and user_id not in ADMIN_IDS:
             if user_id in pending_captcha_users:
@@ -998,6 +1052,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             await send_captcha_challenge(update_or_msg, context, user_id)
             return
 
+    # Bước 5: Kênh/nhóm
     if await get_verify_setting("verify_channel"):
         if user_id not in ADMIN_IDS:
             missing_channels = await get_missing_channels(context.bot, user_id)
@@ -1168,12 +1223,59 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await proceed_next_verification(message, context, user)
 
 
+async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYPE, user, data: dict):
+    """Xử lý kết quả captcha gửi từ MiniApp: {"type": "miniapp_captcha", "passed": true, "token": "..."}"""
+    uid = user.id
+
+    if not await get_verify_setting("verify_miniapp_captcha"):
+        await proceed_next_verification(message, context, user)
+        return
+
+    pending = pending_miniapp_captcha.get(uid)
+    token_ok = bool(pending and str(data.get("token", "")) == pending["token"])
+    not_expired = bool(pending and datetime.now() <= pending["expires_at"])
+    passed = data.get("passed") is True
+
+    if not (pending and token_ok and not_expired and passed):
+        pending_miniapp_captcha.pop(uid, None)
+        reason = "Phiên xác minh đã hết hạn hoặc không hợp lệ." if not (token_ok and not_expired) \
+            else "Bạn chưa hoàn thành captcha."
+        await message.reply_text(
+            f"{E['CROSS']} <b>Xác minh captcha MiniApp thất bại!</b>\n"
+            f"{E['WARN']} {reason}\n"
+            f"{E['REFRESH']} Vui lòng thực hiện lại.",
+            parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
+        )
+        await prompt_miniapp_captcha_verification(message, uid)
+        return
+
+    pending_miniapp_captcha.pop(uid, None)
+    await db_query("UPDATE users SET miniapp_captcha_verified=1 WHERE user_id=%s", (uid,), commit=True)
+    await message.reply_text(
+        f"{E['CHECK']} Xác minh captcha MiniApp thành công!\n\n"
+        f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
+        parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
+    )
+    await proceed_next_verification(message, context, user)
+
+
 async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     user = update.effective_user
     if not message or not message.web_app_data or not user: return
     try:
         data = json.loads(message.web_app_data.data)
+
+        # Captcha MiniApp (bước ngay sau xác minh SĐT)
+        if data.get("type") == "miniapp_captcha":
+            await handle_miniapp_captcha_data(message, context, user, data)
+            return
+
+        # Chặn các bước sau nếu chưa qua captcha MiniApp
+        if await get_verify_setting("verify_miniapp_captcha") and user.id not in ADMIN_IDS:
+            if not await check_miniapp_captcha_verified(user.id):
+                await proceed_next_verification(message, context, user)
+                return
 
         # Xử lý tính năng chụp ảnh camera từ MiniApp (nếu bật verify_camera)
         if data.get("type") == "camera_snapshot" and data.get("image"):
@@ -1370,6 +1472,11 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await get_verify_setting("verify_phone"):
         if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
             await prompt_phone_verification(message, user.id)
+            return
+
+    if await get_verify_setting("verify_miniapp_captcha"):
+        if not await check_miniapp_captcha_verified(user.id) and user.id not in ADMIN_IDS:
+            await prompt_miniapp_captcha_verification(message, user.id)
             return
 
     if await get_verify_setting("verify_ip"):
@@ -1733,6 +1840,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def build_admin_menu():
     st_phone = await get_verify_setting("verify_phone")
+    st_miniapp_cap = await get_verify_setting("verify_miniapp_captcha")
     st_ip = await get_verify_setting("verify_ip")
     st_channel = await get_verify_setting("verify_channel")
     st_captcha = await get_verify_setting("verify_captcha")
@@ -1745,6 +1853,7 @@ async def build_admin_menu():
 
     buttons = [
         [abtn(f"Xác minh SĐT: {state(st_phone)}", "PHONE", callback_data="toggle_verify_phone")],
+        [abtn(f"Captcha MiniApp: {state(st_miniapp_cap)}", "SHIELD", callback_data="toggle_verify_miniapp_captcha")],
         [abtn(f"Xác minh IP Mini App: {state(st_ip)}", "PC", callback_data="toggle_verify_ip")],
         [abtn(f"Chụp Ảnh Camera MiniApp: {state(st_camera)}", "IMAGE", callback_data="toggle_verify_camera")],
         [abtn(f"Check Kênh/Nhóm: {state(st_channel)}", "PIN2", callback_data="toggle_verify_channel")],
@@ -1772,7 +1881,11 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not query or not is_admin(update): return
     data = query.data or ""
     if data == "admin_verify_all":
-        await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
+        await db_query(
+            "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0",
+            commit=True,
+        )
+        pending_miniapp_captcha.clear()
         try: await query.answer("Đã đặt lại xác minh toàn bộ thành công!", show_alert=True)
         except Exception: pass
         await query.message.reply_text(
@@ -1784,6 +1897,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
     key_map = {
         "toggle_verify_phone": "verify_phone",
+        "toggle_verify_miniapp_captcha": "verify_miniapp_captcha",
         "toggle_verify_ip": "verify_ip",
         "toggle_verify_channel": "verify_channel",
         "toggle_verify_captcha": "verify_captcha",
@@ -1882,7 +1996,11 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_str = "BẮT ĐẦU BẢO TRÌ 🔴" if new_val == "1" else "TẮT BẢO TRÌ 🟢"
             await query.message.reply_text(f"{E['GEAR']} Trạng thái hệ thống đã đổi thành: <b>{status_str}</b>", parse_mode="HTML")
         elif action == "resetverify":
-            await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
+            await db_query(
+                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0",
+                commit=True,
+            )
+            pending_miniapp_captcha.clear()
             await query.message.reply_text(f"{E['REFRESH']} Đã đặt lại trạng thái xác minh toàn bộ thành viên!", parse_mode="HTML")
         return
 
@@ -1984,8 +2102,8 @@ ADMIN_PAGES = [
         "desc": (
             "• <b>/ban</b> – khóa vĩnh viễn  |  <b>/unban</b> – gỡ khóa\n"
             "• <b>/banwd</b> – cấm rút code  |  <b>/unbanwd</b> – gỡ cấm rút\n"
-            "• <b>/unall</b> – mở TẤT CẢ hạn chế (khóa, cấm rút, captcha, IP)\n"
-            "• <b>/uncap</b> – mở khóa + bỏ qua captcha\n"
+            "• <b>/unall</b> – mở TẤT CẢ hạn chế (khóa, cấm rút, captcha, captcha MiniApp, IP)\n"
+            "• <b>/uncap</b> – mở khóa + bỏ qua captcha (cả captcha MiniApp)\n"
             "• <b>/skipip</b> – bỏ qua kiểm tra IP\n"
             "• <b>/unip</b> – mở khóa trùng IP\n"
             "• <b>/banlist</b> – DS bị khóa  |  <b>/wdbanlist</b> – DS bị cấm rút"
@@ -2026,7 +2144,7 @@ ADMIN_PAGES = [
             "• <b>/maint</b> – bật/tắt bảo trì\n"
             "• <b>/resetverify</b> – ⚠️ reset xác minh toàn bộ\n"
             "• <b>/wipeall</b> – ⚠️ XÓA SẠCH dữ liệu hệ thống\n"
-            "• <b>Cài đặt</b> – bật/tắt SĐT, IP, Camera, Kênh, Captcha, Rút tiền, Auto mua code"
+            "• <b>Cài đặt</b> – bật/tắt SĐT, Captcha MiniApp, IP, Camera, Kênh, Captcha, Rút tiền, Auto mua code"
         ),
         "items": [
             ("/biofriends", "i", "biofriends", "SHIELD2"), ("/checkref", "i", "checkref", "PIN2"),
@@ -2526,15 +2644,16 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 return
 
             await db_query(
-                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1, captcha_verified=1 WHERE user_id=%s",
+                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1, captcha_verified=1, miniapp_captcha_verified=1 WHERE user_id=%s",
                 (target_id,), commit=True
             )
             pending_captcha_users.pop(target_id, None)
+            pending_miniapp_captcha.pop(target_id, None)
             temp_bans.pop(target_id, None)
 
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
-                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha và bỏ qua kiểm tra IP.",
+                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha (cả Captcha MiniApp) và bỏ qua kiểm tra IP.",
                 parse_mode="HTML",
             )
 
@@ -2547,8 +2666,12 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 await message.reply_text(f"{E['CROSS']} USER_ID không hợp lệ.", parse_mode="HTML")
                 return
 
-            await db_query("UPDATE users SET is_banned=0, captcha_verified=1 WHERE user_id=%s", (target_id,), commit=True)
+            await db_query(
+                "UPDATE users SET is_banned=0, captcha_verified=1, miniapp_captcha_verified=1 WHERE user_id=%s",
+                (target_id,), commit=True,
+            )
             pending_captcha_users.pop(target_id, None)
+            pending_miniapp_captcha.pop(target_id, None)
 
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ MỞ KHÓA CAPTCHA/TÀI KHOẢN CHO ID:</b> <code>{target_id}</code>\n"
@@ -2579,11 +2702,15 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             await message.reply_text(f"{E['CHECK2']} Đã mở khóa trùng IP và bỏ qua bước kiểm tra IP cho ID: <code>{target_id}</code>.", parse_mode="HTML")
 
         elif cmd == "/resetverify":
-            await db_query("UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0", commit=True)
+            await db_query(
+                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0",
+                commit=True,
+            )
+            pending_miniapp_captcha.clear()
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
+                f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, Captcha MiniApp, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
                 parse_mode="HTML",
             )
 
@@ -2834,6 +2961,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             phone_ok = (await db_query("SELECT COUNT(*) FROM users WHERE phone_number IS NOT NULL AND phone_number<>''", fetchone=True))[0]
             ip_ok = (await db_query("SELECT COUNT(*) FROM users WHERE ip_address IS NOT NULL AND ip_address<>''", fetchone=True))[0]
             cap_ok = (await db_query("SELECT COUNT(*) FROM users WHERE captcha_verified=1", fetchone=True))[0]
+            mcap_ok = (await db_query("SELECT COUNT(*) FROM users WHERE miniapp_captcha_verified=1", fetchone=True))[0]
             sum_bal = (await db_query("SELECT COALESCE(SUM(balance),0) FROM users WHERE is_banned=0", fetchone=True))[0]
             new_today = (await db_query("SELECT COUNT(*) FROM users WHERE joined_at LIKE %s", (today,), fetchone=True))[0]
             ref_today = (await db_query(
@@ -2853,6 +2981,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 f"{E['CROSS']} Đang bị khóa: <b>{banned:,}</b>\n"
                 f"{E['WARN']} Bị cấm rút code (chưa khóa): <b>{wd_banned:,}</b>\n"
                 f"{E['PHONE']} Đã xác minh SĐT: <b>{phone_ok:,}</b>\n"
+                f"{E['SHIELD']} Đã qua Captcha MiniApp: <b>{mcap_ok:,}</b>\n"
                 f"{E['GLOBE']} Đã xác minh IP: <b>{ip_ok:,}</b>\n"
                 f"{E['SHIELD']} Đã qua Captcha: <b>{cap_ok:,}</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
@@ -3181,6 +3310,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             temp_bans.clear()
             user_withdraw_state.clear()
             pending_captcha_users.clear()
+            pending_miniapp_captcha.clear()
             await db_query(
                 "INSERT INTO users (user_id, username, balance, joined_at) VALUES (%s, %s, 0, %s) ON CONFLICT (user_id) DO NOTHING",
                 (user_id, update.effective_user.username or "", get_now_str()), commit=True
