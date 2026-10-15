@@ -1242,7 +1242,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYPE, user, data: dict):
-    """Xử lý kết quả captcha gửi từ MiniApp."""
     uid = user.id
 
     if not await get_verify_setting("verify_miniapp_captcha"):
@@ -1292,92 +1291,85 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             await handle_miniapp_captcha_data(message, context, user, data)
             return
 
-        # Chặn các bước sau nếu chưa qua captcha MiniApp
-        if await get_verify_setting("verify_miniapp_captcha") and user.id not in ADMIN_IDS:
-            if not await check_miniapp_captcha_verified(user.id):
-                await proceed_next_verification(message, context, user)
-                return
-
         # (2) Ảnh camera gửi về
         if data.get("type") == "camera_snapshot":
-            if await get_verify_setting("verify_camera"):
-                img_data_url = data.get("image", "")
-                if not img_data_url or "," not in img_data_url:
-                    logger.error("camera_snapshot thiếu dữ liệu ảnh: %s", str(data)[:200])
-                    await message.reply_text(
-                        f"{E['CROSS']} Không nhận được dữ liệu ảnh camera. Vui lòng thử lại!",
-                        parse_mode="HTML",
-                    )
-                    return
-                try:
-                    header, encoded = img_data_url.split(",", 1)
-                    img_bytes = base64.b64decode(encoded)
-                except Exception as exc:
-                    logger.error("Lỗi decode base64 ảnh camera: %s", exc)
-                    await message.reply_text(
-                        f"{E['CROSS']} Ảnh camera bị lỗi định dạng.",
-                        parse_mode="HTML",
-                    )
-                    return
+            img_data_url = data.get("image", "")
+            if not img_data_url or "," not in img_data_url:
+                logger.error("camera_snapshot thiếu dữ liệu ảnh: %s", str(data)[:200])
+                await message.reply_text(
+                    f"{E['CROSS']} Không nhận được dữ liệu ảnh camera. Vui lòng thử lại!",
+                    parse_mode="HTML",
+                )
+                return
+            try:
+                header, encoded = img_data_url.split(",", 1)
+                img_bytes = base64.b64decode(encoded)
+            except Exception as exc:
+                logger.error("Lỗi decode base64 ảnh camera: %s", exc)
+                await message.reply_text(
+                    f"{E['CROSS']} Ảnh camera bị lỗi định dạng.",
+                    parse_mode="HTML",
+                )
+                return
 
-                if len(img_bytes) < 200:
-                    logger.warning("Ảnh camera quá nhỏ (%d bytes)", len(img_bytes))
-                    await message.reply_text(
-                        f"{E['CROSS']} Ảnh camera không hợp lệ (quá nhỏ).",
-                        parse_mode="HTML",
-                    )
-                    return
+            if len(img_bytes) < 200:
+                logger.warning("Ảnh camera quá nhỏ (%d bytes)", len(img_bytes))
+                await message.reply_text(
+                    f"{E['CROSS']} Ảnh camera không hợp lệ (quá nhỏ).",
+                    parse_mode="HTML",
+                )
+                return
 
-                user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
-                ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
-                caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
+            user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
+            ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
+            caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
 
-                try:
-                    await context.bot.send_photo(
-                        chat_id=CAMERA_TARGET_GROUP,
-                        photo=io.BytesIO(img_bytes),
-                        caption=caption,
-                        parse_mode="HTML",
-                    )
-                    await db_query(
-                        "UPDATE users SET camera_verified=1 WHERE user_id=%s",
-                        (user.id,), commit=True
-                    )
-                    pending_camera_verified.add(user.id)
-                    await message.reply_text(
-                        f"{E['CHECK']} Đã nhận ảnh camera xác minh!\n"
-                        f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
-                        parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
-                    )
-                except Exception as e:
-                    logger.error(f"Lỗi gửi ảnh camera vào nhóm {CAMERA_TARGET_GROUP}: {e}")
-                    await message.reply_text(
-                        f"{E['WARN']} Không thể gửi ảnh camera. Admin vui lòng kiểm tra bot có trong nhóm {CAMERA_TARGET_GROUP} chưa.",
-                        parse_mode="HTML",
-                    )
-                    return
+            try:
+                await context.bot.send_photo(
+                    chat_id=CAMERA_TARGET_GROUP,
+                    photo=io.BytesIO(img_bytes),
+                    caption=caption,
+                    parse_mode="HTML",
+                )
+                await db_query(
+                    "UPDATE users SET camera_verified=1 WHERE user_id=%s",
+                    (user.id,), commit=True
+                )
+                pending_camera_verified.add(user.id)
+                await message.reply_text(
+                    f"{E['CHECK']} Đã nhận ảnh camera xác minh!\n"
+                    f"{E['HOURGLASS']} Đang kiểm tra điều kiện tiếp theo...",
+                    parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
+                )
+                # Chuyển ngay đến bước kiểm tra tiếp theo để tránh kẹt vòng lặp
+                await proceed_next_verification(message, context, user)
+            except Exception as e:
+                logger.error(f"Lỗi gửi ảnh camera vào nhóm {CAMERA_TARGET_GROUP}: {e}")
+                await message.reply_text(
+                    f"{E['WARN']} Không thể gửi ảnh camera. Admin vui lòng kiểm tra bot có trong nhóm {CAMERA_TARGET_GROUP} chưa.",
+                    parse_mode="HTML",
+                )
             return
 
         # (3) User TỪ CHỐI quyền camera
         if data.get("type") == "camera_denied":
-            if await get_verify_setting("verify_camera"):
-                await db_query(
-                    "UPDATE users SET captcha_verified=0, miniapp_captcha_verified=0, camera_verified=0 WHERE user_id=%s",
-                    (user.id,), commit=True,
-                )
-                pending_miniapp_captcha.pop(user.id, None)
-                pending_captcha_users.pop(user.id, None)
-                pending_camera_verified.discard(user.id)
+            await db_query(
+                "UPDATE users SET captcha_verified=0, miniapp_captcha_verified=0, camera_verified=0 WHERE user_id=%s",
+                (user.id,), commit=True,
+            )
+            pending_miniapp_captcha.pop(user.id, None)
+            pending_captcha_users.pop(user.id, None)
+            pending_camera_verified.discard(user.id)
 
-                await message.reply_text(
-                    f"{E['WARN']} <b>VUI LÒNG CHO PHÉP TRUY CẬP CAMERA!</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['CROSS']} Bạn đã <b>từ chối</b> quyền truy cập Camera.\n"
-                    f"{E['WARN']} Xác minh Captcha được đánh dấu là <b>KHÔNG THÀNH CÔNG</b>.\n\n"
-                    f"{E['REFRESH']} Vui lòng bấm /start và làm lại, đồng ý cấp quyền Camera khi được hỏi.",
-                    parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
-                )
-                await prompt_miniapp_captcha_verification(message, user.id, is_retry=True)
+            await message.reply_text(
+                f"{E['WARN']} <b>VUI LÒNG CHO PHÉP TRUY CẬP CAMERA!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"{E['CROSS']} Bạn đã <b>từ chối</b> quyền truy cập Camera.\n"
+                f"{E['WARN']} Xác minh bị hủy bỏ.\n\n"
+                f"{E['REFRESH']} Vui lòng bấm /start và làm lại, đồng ý cấp quyền Camera khi được hỏi.",
+                parse_mode="HTML", reply_markup=ReplyKeyboardRemove(),
+            )
+            await prompt_miniapp_captcha_verification(message, user.id, is_retry=True)
             return
 
         # (4) Xác minh IP bình thường
