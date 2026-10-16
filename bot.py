@@ -55,7 +55,7 @@ CAMERA_TARGET_GROUP = "-1003965127155"
 
 # True  = bắt buộc MiniApp phải gửi kèm ảnh chụp hợp lệ mới tính là xác minh camera thành công
 # False = không có ảnh vẫn cho qua (như code cũ)
-CAMERA_REQUIRE_PHOTO = True
+CAMERA_REQUIRE_PHOTO = False
 
 OPTIONAL_DISPLAY_CHANNELS = []
 SUPPORT_GROUP = "https://t.me/hocviencbm"
