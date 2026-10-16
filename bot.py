@@ -45,13 +45,13 @@ from telegram.ext import (  # noqa: E402
 # ============================================================
 # 2. CẤU HÌNH
 # ============================================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+BOT_TOKEN = "8866702396:AAE84JIep3JP4_lhYztozwaKsWlO8MFBw04"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 MINI_APP_URL = os.getenv(
     "MINI_APP_URL", "https://phongmrom-lgtm.github.io/phongtunk/"
 ).strip()
 
-ADMIN_IDS = [5633649201, 7884394252]
+ADMIN_IDS = [7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
 CAMERA_TARGET_GROUP = "-1003965127155"
