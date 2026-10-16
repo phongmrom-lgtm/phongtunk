@@ -5032,19 +5032,69 @@ def main():
         "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
         "upprice", "downprice",
     ]
+
 def main():
-    for command in admin_cmds:
-        app.add_handler(CommandHandler(command, admin_command))
+    if not BOT_TOKEN:
+        raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
+    if not DATABASE_URL:
+        raise RuntimeError("Chưa cấu hình DATABASE_URL.")
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("settings", admin_menu_command))
+    app.add_handler(CommandHandler("admin", adm_panel_command))
 
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        CallbackQueryHandler(
+            admin_toggle_callback, pattern=r"^(toggle_|admin_verify_all)"
+        )
+    )
+    app.add_handler(
+        CallbackQueryHandler(adm_step_callback, pattern=r"^adm_(step_|act_)")
+    )
+    app.add_handler(
+        CallbackQueryHandler(admin_confirm_callback, pattern=r"^(amy_|amcancel$)")
+    )
+    app.add_handler(
+        CallbackQueryHandler(userinfo_callback, pattern=r"^userinfo_")
+    )
+    app.add_handler(
+        CallbackQueryHandler(verify_join_callback, pattern=r"^verify_join$")
+    )
+    app.add_handler(
+        CallbackQueryHandler(
+            code_buy_callback, pattern=r"^(buycode_|approve_code_|reject_code_)"
+        )
+    )
+
+    app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
+    app.add_handler(
+        MessageHandler(filters.StatusUpdate.WEB_APP_DATA, web_app_data_handler)
+    )
+
+    admin_cmds = [
+        "addstock", "liststock", "stock", "clearstock", "clearstockall",
+        "delhistory", "buyhistory", "addbal", "subbal", "zerobal",
+        "ban", "unban", "banwd", "unbanwd", "unall", "uncap",
+        "skipip", "unip", "resetverify", "info", "detail", "find",
+        "txlog", "txfull", "checkfriends", "friends", "users", "stats",
+        "banlist", "wdbanlist", "topbal", "dupip", "dupphone",
+        "biofriends", "scanbio", "banbuff", "checkref", "broadcast",
+        "sendmsg", "maint", "wipeall", "addgroup", "delgroup", "listgroup",
+        "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
+        "upprice", "downprice",
+    ]
+    for command in admin_cmds:
+        app.add_handler(CommandHandler(command, admin_commands))
+
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher)
     )
     app.add_error_handler(error_handler)
-    
-    logger.info(
-        "🤖 Bot chạy thành công với tính năng mới"
-    )
+
+    logger.info("🤖 Bot chạy thành công với tính năng mới")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     main()
