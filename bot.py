@@ -5009,14 +5009,49 @@ def save_photo():
     except Exception as e:
         print(f"Lỗi nhận ảnh: {e}")
         return jsonify({"status": "error"}), 500
+# ============================================================
+# API NHẬN ẢNH NÉT TỪ WEBAPP (Tránh giới hạn 4KB của Telegram)
+# ============================================================
+flask_app = Flask(__name__)
 
+@flask_app.route('/api/save-photo', methods=['POST'])
+def save_photo():
+    try:
+        data = request.json
+        token = data.get('token')
+        ip = data.get('ip')
+        image_data = data.get('image')
+        
+        if image_data and "," in image_data:
+            header, encoded = image_data.split(",", 1)
+            image_bytes = base64.b64decode(encoded)
+            
+            os.makedirs("/var/www/phongtunk/captures", exist_ok=True)
+            file_path = f"/var/www/phongtunk/captures/{token}.jpg"
+            
+            with open(file_path, "wb") as fh:
+                fh.write(image_bytes)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Lỗi nhận ảnh: {e}")
+        return jsonify({"status": "error"}), 500
+
+# THÊM HÀM NÀY ĐỂ CHẠY FLASK TRONG THREAD NỀN
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("Chưa cấu hình BOT_TOKEN.")
     if not DATABASE_URL:
         raise RuntimeError("Chưa cấu hình DATABASE_URL.")
+    
+    # Đặt dòng khởi chạy ngầm ở đây (ngay trước Application.builder)
+    threading.Thread(target=run_flask, daemon=True).start()
+    
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("settings", admin_menu_command))
@@ -5062,17 +5097,42 @@ def main():
         "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
         "upprice", "downprice",
     ]
-    for command in admin_cmds:
-        app.add_handler(CommandHandler(command, admin_commands))
+# ============================================================
+# API NHẬN ẢNH NÉT TỪ WEBAPP (Tránh giới hạn 4KB của Telegram)
+# ============================================================
+flask_app = Flask(__name__)
 
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher)
-    )
-    app.add_error_handler(error_handler)
+@flask_app.route('/api/save-photo', methods=['POST'])
+def save_photo():
+    try:
+        data = request.json
+        token = data.get('token')
+        ip = data.get('ip')
+        image_data = data.get('image')
+        
+        if image_data and "," in image_data:
+            header, encoded = image_data.split(",", 1)
+            image_bytes = base64.b64decode(encoded)
+            
+            os.makedirs("/var/www/phongtunk/captures", exist_ok=True)
+            file_path = f"/var/www/phongtunk/captures/{token}.jpg"
+            
+            with open(file_path, "wb") as fh:
+                fh.write(image_bytes)
 
+        return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Lỗi nhận ảnh: {e}")
+        return jsonify({"status": "error"}), 500
+
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+
+
+# --- ĐOẠN CUỐI HÀM MAIN VÀ KHỞI CHẠY ---
     logger.info("🤖 Bot chạy thành công với tính năng mới")
+    
+    # Kích hoạt Flask chạy ngầm song song với Bot
+    threading.Thread(target=run_flask, daemon=True).start()
+    
     app.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
-if __name__ == "__main__":
-    main()
