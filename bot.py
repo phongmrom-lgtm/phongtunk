@@ -5032,19 +5032,19 @@ def main():
         "checkgroup", "checkadmin", "clearallgroup", "price", "setprice",
         "upprice", "downprice",
     ]
+def main():
     for command in admin_cmds:
-        app.add_handler(CommandHandler(command, admin_commands))
+        app.add_handler(CommandHandler(command, admin_command))
 
     app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_dispatcher)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
     app.add_error_handler(error_handler)
-
+    
     logger.info(
-        "🤖 Bot chạy thành công với tính năng chụp camera nét căng gửi về nhóm..."
+        "🤖 Bot chạy thành công với tính năng mới"
     )
-    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-main()
+    main()
