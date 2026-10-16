@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import html as _html
 import io
 import json
@@ -13,6 +14,7 @@ from datetime import datetime, timedelta
 
 import pytz
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
 from PIL import Image, ImageDraw, ImageFont
 from psycopg.rows import tuple_row
 from psycopg_pool import ConnectionPool
@@ -4982,10 +4984,9 @@ async def post_init(application: Application) -> None:
 # ============================================================
 # API NHẬN ẢNH NÉT TỪ WEBAPP (Tránh giới hạn 4KB của Telegram)
 # ============================================================
-from flask import request, jsonify
+flask_app = Flask(__name__)
 
-# Đoạn route nhận ảnh nét từ WebApp gửi lên qua lệnh fetch POST
-@app.route('/api/save-photo', methods=['POST'])
+@flask_app.route('/api/save-photo', methods=['POST'])
 def save_photo():
     try:
         data = request.json
@@ -4997,7 +4998,6 @@ def save_photo():
             header, encoded = image_data.split(",", 1)
             image_bytes = base64.b64decode(encoded)
             
-            # Tạo thư mục lưu ảnh nếu chưa có
             os.makedirs("/var/www/phongtunk/captures", exist_ok=True)
             file_path = f"/var/www/phongtunk/captures/{token}.jpg"
             
